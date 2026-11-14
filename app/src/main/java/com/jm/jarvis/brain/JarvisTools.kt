@@ -22,6 +22,7 @@ import com.jm.jarvis.domain.StopwatchAction
 import com.jm.jarvis.domain.StopwatchService
 import com.jm.jarvis.domain.parseClock
 import com.jm.jarvis.phone.PhoneActions
+import com.jm.jarvis.phone.PhoneControl
 import com.jm.jarvis.web.Lookup
 import com.jm.jarvis.web.Source
 import com.jm.jarvis.web.WebLookup
@@ -46,7 +47,29 @@ class JarvisTools(
     private val reminders: ReminderService,
     private val memory: MemoryService,
     private val briefing: BriefingService,
+    private val control: PhoneControl,
 ) : ToolSet {
+
+    @Tool(description = "Controla o celular: lanterna, volume, abrir app, ligar para contato, WhatsApp, rota no mapa ou tocar música.")
+    fun celular(
+        @ToolParam(description = "lanterna, volume, abrir, ligar, whatsapp, rota ou musica") acao: String,
+        @ToolParam(description = "Contato, app, destino ou música, ex.: Maria, Spotify, aeroporto, Legião Urbana") alvo: String? = null,
+        @ToolParam(description = "ligar/desligar para lanterna; 0 a 100, mais ou menos para volume; a mensagem para WhatsApp") valor: String? = null,
+    ): String {
+        val action = SpokenTime.normalize(acao)
+        val target = alvo?.trim().orEmpty()
+        return when {
+            "lanterna" in action || "flash" in action ->
+                control.torch(on = valor?.let { "deslig" !in SpokenTime.normalize(it) && "apag" !in SpokenTime.normalize(it) } ?: true)
+            "volume" in action || "som" in action -> control.volume(valor ?: target)
+            "whats" in action || "mensag" in action -> if (target.isEmpty()) "Para quem é a mensagem?" else control.whatsapp(target, valor)
+            "lig" in action || "chama" in action -> if (target.isEmpty()) "Para quem devo ligar?" else control.call(target)
+            "rota" in action || "naveg" in action || "mapa" in action -> if (target.isEmpty()) "Para onde?" else control.navigate(target)
+            "music" in action || "toca" in action -> if (target.isEmpty()) "Qual música?" else control.playMusic(target)
+            "abr" in action || "app" in action -> if (target.isEmpty()) "Qual app?" else control.openApp(target)
+            else -> "Ação do celular desconhecida: use lanterna, volume, abrir, ligar, whatsapp, rota ou musica."
+        }
+    }
 
     @Tool(description = "Lembretes avulsos: criar, listar ou cancelar. Ex.: me lembra de ligar para o dentista amanhã às 15h.")
     fun lembrete(

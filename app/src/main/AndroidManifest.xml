@@ -14,6 +14,8 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!-- Criar despertadores e timers no app Relógio -->
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+    <!-- Achar o número para ligar ou abrir o WhatsApp; nada é enviado sozinho -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
 
     <!-- Necessário para encontrar o mecanismo de voz e o reconhecedor de fala do Android -->
     <queries>
@@ -32,6 +34,32 @@
         <intent>
             <action android:name="android.intent.action.SHOW_ALARMS" />
         </intent>
+        <!-- "Abre o Spotify": lista os apps do iniciador -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" android:host="wa.me" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="google.navigation" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="geo" />
+        </intent>
+        <intent>
+            <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
+        </intent>
+        <package android:name="com.whatsapp" />
+        <package android:name="com.spotify.music" />
     </queries>
 
     <application

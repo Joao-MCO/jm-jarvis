@@ -12,6 +12,7 @@ import com.jm.jarvis.domain.MemoryService
 import com.jm.jarvis.domain.ReminderService
 import com.jm.jarvis.domain.StopwatchService
 import com.jm.jarvis.phone.PhoneActions
+import com.jm.jarvis.phone.PhoneControl
 import com.jm.jarvis.calendar.CalendarAnnouncer
 import com.jm.jarvis.data.AppDatabase
 import com.jm.jarvis.data.SettingsStore
@@ -52,10 +53,11 @@ class AppContainer(context: Context) {
     val speechInput = SpeechInput(context)
     val web = WebLookup(context, settings)
     val phone = PhoneActions(context)
+    val control = PhoneControl(context, phone)
     val stopwatch = StopwatchService(settings, notifications)
     val briefing = BriefingService(context, settings, scheduler, habits, reminders, calendar, web)
     val brain = Brain(context, habits, memory) {
-        JarvisTools(habits, calendar, web, phone, stopwatch, reminders, memory, briefing)
+        JarvisTools(habits, calendar, web, phone, stopwatch, reminders, memory, briefing, control)
     }
 
     /**

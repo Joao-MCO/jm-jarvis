@@ -74,6 +74,7 @@ fun SettingsScreen(app: AppContainer) {
     }
     val locationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { resumes++ }
     val locationGranted = remember(resumes) { app.web.hasLocationPermission() }
+    val contactsGranted = remember(resumes) { app.control.contactsAllowed() }
     val uriHandler = LocalUriHandler.current
     val current = settings ?: return
     var keyDraft by remember(current.tavilyKey) { mutableStateOf(current.tavilyKey) }
@@ -201,6 +202,9 @@ fun SettingsScreen(app: AppContainer) {
         TextButton(onClick = { uriHandler.openUri("https://app.tavily.com") }) { Text("Criar chave em tavily.com") }
         PermissionRow("Localização (para o clima)", locationGranted, "Permitir") {
             locationPermission.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+        PermissionRow("Contatos (para ligar e WhatsApp)", contactsGranted, "Permitir") {
+            locationPermission.launch(Manifest.permission.READ_CONTACTS)
         }
 
         HorizontalDivider()
