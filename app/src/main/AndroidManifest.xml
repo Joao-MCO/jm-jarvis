@@ -11,6 +11,8 @@
     <!-- Pesquisa, Wikipedia e clima; a IA em si não usa a internet -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <!-- Só a cidade aproximada, para o clima -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!-- Criar despertadores e timers no app Relógio -->
@@ -100,6 +102,11 @@
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
             </intent-filter>
         </receiver>
+
+        <service
+            android:name=".voice.WakeService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
 
         <service
             android:name=".calendar.CalendarChangeJob"

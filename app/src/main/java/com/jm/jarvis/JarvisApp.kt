@@ -20,6 +20,7 @@ import com.jm.jarvis.data.SettingsStore
 import com.jm.jarvis.domain.HabitService
 import com.jm.jarvis.notify.Notifications
 import com.jm.jarvis.notify.ReminderScheduler
+import com.jm.jarvis.voice.Dialogue
 import com.jm.jarvis.voice.SpeechInput
 import com.jm.jarvis.voice.Speaker
 import com.jm.jarvis.web.WebLookup
@@ -61,6 +62,7 @@ class AppContainer(context: Context) {
     fun newTools() = JarvisTools(habits, calendar, web, phone, stopwatch, reminders, memory, briefing, control)
 
     val brain = Brain(context, habits, memory, settings, CloudBrain(settings), ::newTools)
+    val dialogue = Dialogue(brain, speaker, speechInput, habits)
 
     /**
      * Arma de novo todos os alarmes (ao abrir o app, ao reiniciar o celular, ao mudar a hora).

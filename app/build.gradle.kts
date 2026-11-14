@@ -42,6 +42,7 @@ dependencies {
     implementation(libs.datastore.preferences)
     implementation(libs.glance.appwidget)
     implementation(libs.litertlm.android)
+    implementation(libs.porcupine.android)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.runner)

@@ -8,5 +8,7 @@ build/
 .cxx/
 # Modelos de IA (gigabytes) ficam fora do git
 /models/
+# Palavra de ativação "Ei, Jarvis": arquivos presos à chave pessoal da Picovoice
+/app/src/main/assets/wake/
 # Arquivo temporário deixado pelo instalador do Android Studio
 inst_user_settings.tmp

@@ -42,6 +42,7 @@ import com.jm.jarvis.AppContainer
 import com.jm.jarvis.data.Settings
 import com.jm.jarvis.domain.Progress
 import com.jm.jarvis.voice.Speaker
+import com.jm.jarvis.voice.WakeService
 import kotlinx.coroutines.launch
 
 /** Qual horário o seletor está editando. */
@@ -79,6 +80,7 @@ fun SettingsScreen(app: AppContainer) {
     val uriHandler = LocalUriHandler.current
     val current = settings ?: return
     var keyDraft by remember(current.tavilyKey) { mutableStateOf(current.tavilyKey) }
+    var picovoiceDraft by remember(current.picovoiceKey) { mutableStateOf(current.picovoiceKey) }
     var cloudKeyDraft by remember(current.cloudKey) { mutableStateOf(current.cloudKey) }
     var cloudModelDraft by remember(current.cloudModel) { mutableStateOf(current.cloudModel) }
     var cloudUrlDraft by remember(current.cloudUrl) { mutableStateOf(current.cloudUrl) }
@@ -181,6 +183,34 @@ fun SettingsScreen(app: AppContainer) {
                 Text(fact.text, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                 TextButton(onClick = { scope.launch { app.memory.forget(fact.id) } }) { Text("Apagar") }
             }
+        }
+
+        HorizontalDivider()
+        Text("Ei, Jarvis", style = MaterialTheme.typography.titleMedium)
+        val wakeProblem = WakeService.unavailable(context, current.picovoiceKey)
+        SwitchRow(
+            "Ouvir \"Ei, Jarvis\"",
+            "Fica ouvindo no aparelho (o áudio não sai do celular) e mostra uma notificação fixa. Gasta um pouco de bateria. Depois de religar o celular, abra o app uma vez.",
+            current.wakeEnabled,
+        ) { on ->
+            if (on && wakeProblem != null) return@SwitchRow
+            update { it.copy(wakeEnabled = on) }
+            if (on) WakeService.start(context) else WakeService.stop(context)
+        }
+        if (wakeProblem != null) {
+            Text(wakeProblem, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        }
+        OutlinedTextField(
+            value = picovoiceDraft,
+            onValueChange = { picovoiceDraft = it.trim() },
+            label = { Text("Chave da Picovoice") },
+            singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = { update { it.copy(picovoiceKey = picovoiceDraft) } }, enabled = picovoiceDraft != current.picovoiceKey) { Text("Salvar") }
+            TextButton(onClick = { uriHandler.openUri("https://console.picovoice.ai") }) { Text("Criar chave em picovoice.ai") }
         }
 
         HorizontalDivider()

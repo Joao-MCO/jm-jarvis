@@ -15,6 +15,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import com.jm.jarvis.brain.ReplyEvent
 import com.jm.jarvis.ui.JarvisAppUi
+import com.jm.jarvis.voice.WakeService
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -35,6 +36,8 @@ class MainActivity : ComponentActivity() {
             app.habits.seedIfNeeded(app.settings)
             app.rearmAll()
             app.web.rememberLocation()
+            // O Android só deixa iniciar o serviço de microfone com o app na tela; religar o celular exige abrir o app.
+            if (app.settings.current().wakeEnabled) WakeService.start(this@MainActivity)
         }
 
         if (savedInstanceState == null) {

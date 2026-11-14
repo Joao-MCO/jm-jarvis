@@ -30,6 +30,9 @@ data class Settings(
     val cloudKey: String = "",
     val cloudUrl: String = DEFAULT_CLOUD_URL,
     val cloudModel: String = DEFAULT_CLOUD_MODEL,
+    /** "Ei, Jarvis": o serviço que fica ouvindo a palavra de ativação (Porcupine, da Picovoice). */
+    val wakeEnabled: Boolean = false,
+    val picovoiceKey: String = "",
     /** Última localização obtida; serve quando o GPS não responde (celular parado, app em segundo plano). */
     val lastLatitude: Double? = null,
     val lastLongitude: Double? = null,
@@ -69,6 +72,8 @@ class SettingsStore(context: Context) {
             prefs[CLOUD_MODEL] = next.cloudModel
             next.lastLatitude?.let { prefs[LAST_LAT] = it } ?: prefs.remove(LAST_LAT)
             next.lastLongitude?.let { prefs[LAST_LON] = it } ?: prefs.remove(LAST_LON)
+            prefs[WAKE_ENABLED] = next.wakeEnabled
+            prefs[PICOVOICE_KEY] = next.picovoiceKey
             prefs[BRIEFING_ENABLED] = next.briefingEnabled
             prefs[BRIEFING_TIME] = next.briefingTime.toSecondOfDay() / 60
         }
@@ -105,6 +110,8 @@ class SettingsStore(context: Context) {
             cloudKey = this[CLOUD_KEY] ?: defaults.cloudKey,
             cloudUrl = this[CLOUD_URL] ?: defaults.cloudUrl,
             cloudModel = this[CLOUD_MODEL] ?: defaults.cloudModel,
+            wakeEnabled = this[WAKE_ENABLED] ?: defaults.wakeEnabled,
+            picovoiceKey = this[PICOVOICE_KEY] ?: defaults.picovoiceKey,
             lastLatitude = this[LAST_LAT],
             lastLongitude = this[LAST_LON],
             briefingEnabled = this[BRIEFING_ENABLED] ?: defaults.briefingEnabled,
@@ -124,6 +131,8 @@ class SettingsStore(context: Context) {
         val CLOUD_KEY = stringPreferencesKey("cloud_key")
         val CLOUD_URL = stringPreferencesKey("cloud_url")
         val CLOUD_MODEL = stringPreferencesKey("cloud_model")
+        val WAKE_ENABLED = booleanPreferencesKey("wake_enabled")
+        val PICOVOICE_KEY = stringPreferencesKey("picovoice_key")
         val LAST_LAT = doublePreferencesKey("last_latitude")
         val LAST_LON = doublePreferencesKey("last_longitude")
         val BRIEFING_ENABLED = booleanPreferencesKey("briefing_enabled")
