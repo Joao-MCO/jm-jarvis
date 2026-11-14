@@ -53,10 +53,53 @@ class ShortcutsTest {
     fun `anything uncertain goes to the model`() {
         assertNull(match("Qual é o volume agora?"))
         assertNull(match("Coloca um despertador às 7h de segunda a sexta"))
-        assertNull(match("Daqui a 20 minutos me lembra de tirar o bolo do forno"))
-        assertNull(match("Quanto eu bebi de água hoje?"))
         assertNull(match("Quero correr uma meia maratona até junho"))
         assertNull(match("Bom dia, Jarvis!"))
         assertNull(match("Fui ao mercado")) // sem rotina correspondente
+    }
+
+    private val now = java.time.LocalDateTime.of(2026, 11, 14, 10, 0) // sábado
+
+    private fun shortcut(text: String) = Shortcut.match(text, habits, now)
+
+    @Test
+    fun `questions never act`() {
+        assertEquals(Shortcut.HabitProgress("agua"), shortcut("Quanto eu bebi de água hoje?"))
+        assertEquals(true, shortcut("Já bebi água?") is Shortcut.HabitProgress)
+        assertNull(shortcut("Bebi 500 ml de água?"))
+        assertNull(shortcut("Liga a lanterna?"))
+        assertNull(shortcut("Já escovei os dentes?").takeIf { it !is Shortcut.HabitProgress })
+        assertEquals(Shortcut.Stopwatch("consultar"), shortcut("quanto deu?"))
+        assertNull(shortcut("Quanto tempo falta para o timer de 10 minutos?"))
+    }
+
+    @Test
+    fun `read shortcuts`() {
+        assertEquals(Shortcut.Weather(2), shortcut("Vai chover amanhã?"))
+        assertEquals(Shortcut.Weather(1), shortcut("Como está o clima hoje"))
+        assertEquals(Shortcut.Weather(7), shortcut("previsão para a semana"))
+        assertEquals(Shortcut.Weather(2), shortcut("previsão para domingo")) // sábado → domingo
+        assertEquals(Shortcut.Weather(7), shortcut("vai chover sexta?")) // sábado → sexta é daqui a 6 dias
+        assertEquals(Shortcut.Agenda(1), shortcut("O que eu tenho na agenda hoje?"))
+        assertEquals(Shortcut.Agenda(2), shortcut("quais são meus compromissos amanhã"))
+        assertEquals(Shortcut.DaySummary, shortcut("Como está o meu dia?"))
+        assertEquals(Shortcut.PendingHabits, shortcut("Quais rotinas ainda faltam hoje?"))
+        assertEquals(Shortcut.PendingReminders, shortcut("Quais lembretes eu tenho?"))
+        assertNull(shortcut("Marca uma reunião na agenda amanhã"))
+    }
+
+    @Test
+    fun `reminders and memory`() {
+        assertEquals(
+            Shortcut.Remind("ligar para o dentista", "amanhã às 15h"),
+            shortcut("Me lembra de ligar para o dentista amanhã às 15h"),
+        )
+        assertEquals(
+            Shortcut.Remind("tirar o bolo do forno", "Daqui a 20 minutos"),
+            shortcut("Daqui a 20 minutos me lembra de tirar o bolo do forno"),
+        )
+        assertEquals(Shortcut.Remember("eu sou alérgico a camarão"), shortcut("Lembra que eu sou alérgico a camarão"))
+        assertNull(shortcut("Me lembra de comprar pão")) // sem horário: a IA pergunta quando
+        assertNull(shortcut("Lembra que amanhã eu tenho dentista")) // ambíguo: lembrete ou fato
     }
 }

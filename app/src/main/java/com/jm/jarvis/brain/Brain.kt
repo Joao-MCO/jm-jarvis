@@ -101,7 +101,7 @@ class Brain(
         val config = settings.current()
         if (!config.cloudEnabled || config.cloudKey.isBlank() || !online()) return null
         return try {
-            val toolSet = newTools()
+            val toolSet = newTools().also { it.readOnly = Question.asked(text) }
             val persona = persona(habits.habits().filter { it.active }.joinToString(", ") { it.name }, memory.forPrompt(), LocalDateTime.now())
             val answer = clean(cloud.reply(text, persona, toolSet))
             val checked = if (toolSet.executed == 0 && CLAIM.containsMatchIn(answer)) NOT_DONE else answer
@@ -129,6 +129,7 @@ class Brain(
         val current = conversation()
         val toolSet = checkNotNull(tools)
         toolSet.sources.clear()
+        toolSet.readOnly = Question.asked(text)
         val raw = StringBuilder()
         current.sendMessageAsync(text).collect { chunk ->
             raw.append(chunk.toString())
@@ -185,7 +186,8 @@ class Brain(
     fun persona(routines: String, facts: List<String>, now: LocalDateTime) = """
         Você é JARVIS, o assistente pessoal do usuário: educado, direto, com um toque de humor de mordomo britânico. Trate por "você".
         Responda em português do Brasil, em no máximo duas frases curtas, sem emojis, listas ou links, pois será falado em voz alta. Não diga data nem hora, a menos que perguntem.
-        Para fazer algo (registrar, criar, adiar, lembrar, guardar, consultar), chame a ferramenta; nunca diga que fez sem chamá-la. Nunca invente dados do usuário.
+        Para fazer algo (registrar, criar, adiar, lembrar, guardar), chame a ferramenta; nunca diga que fez sem chamá-la. Nunca invente dados do usuário.
+        Se o usuário fizer uma pergunta, responda; só registre ou crie algo quando ele afirmar ou pedir.
         Pessoas, lugares e conceitos: Wikipedia. Notícias, preços, placares e fatos recentes: internet. Tempo: clima.
         Agora é ${now.format(NOW)}.
         Rotinas do usuário: $routines.

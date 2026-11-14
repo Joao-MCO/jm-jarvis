@@ -125,6 +125,7 @@ object CloudTools {
         .put(fn("registrar_habito", "Registra que o usuário acabou de fazer uma rotina (água, dentes, academia, suplementos etc.).", listOf("habito"),
             "habito" to prop(S, "Nome da rotina"), "quantidade" to prop("number", "Quantidade, se o usuário disser: ml de água, minutos etc.")))
         .put(fn("listar_habitos", "Lista as rotinas de hoje e quais ainda faltam."))
+        .put(fn("progresso_habito", "Quanto o usuário já fez de uma rotina hoje, sem registrar nada.", listOf("habito"), "habito" to prop(S, "Nome da rotina")))
         .put(fn("criar_habito", "Cria uma rotina nova, com só um tipo de frequência.", listOf("nome"),
             "nome" to prop(S), "intervalo_minutos" to prop("integer", "Repetir a cada N minutos"),
             "horarios" to prop("array", "Horários HH:mm", S), "vezes_por_semana" to prop("integer")))
@@ -158,6 +159,7 @@ object CloudTools {
         return when (name) {
             "registrar_habito" -> tools.registrarHabito(str("habito").orEmpty(), if (args.has("quantidade") && !args.isNull("quantidade")) args.optDouble("quantidade") else null)
             "listar_habitos" -> tools.listarHabitos()
+            "progresso_habito" -> tools.progressoHabito(str("habito").orEmpty())
             "criar_habito" -> tools.criarHabito(str("nome").orEmpty(), int("intervalo_minutos"), list("horarios"), int("vezes_por_semana"))
             "adiar_lembrete" -> tools.adiarLembrete(str("habito").orEmpty(), int("minutos") ?: 0)
             "resumo_do_dia" -> tools.resumoDoDia()

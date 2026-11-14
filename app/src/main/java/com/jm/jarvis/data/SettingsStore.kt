@@ -3,6 +3,7 @@ package com.jm.jarvis.data
 import android.content.Context
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
@@ -29,6 +30,9 @@ data class Settings(
     val cloudKey: String = "",
     val cloudUrl: String = DEFAULT_CLOUD_URL,
     val cloudModel: String = DEFAULT_CLOUD_MODEL,
+    /** Última localização obtida; serve quando o GPS não responde (celular parado, app em segundo plano). */
+    val lastLatitude: Double? = null,
+    val lastLongitude: Double? = null,
     /** Briefing falado: clima, agenda, rotinas e lembretes do dia. */
     val briefingEnabled: Boolean = true,
     val briefingTime: LocalTime = LocalTime.of(7, 30),
@@ -63,6 +67,8 @@ class SettingsStore(context: Context) {
             prefs[CLOUD_KEY] = next.cloudKey
             prefs[CLOUD_URL] = next.cloudUrl
             prefs[CLOUD_MODEL] = next.cloudModel
+            next.lastLatitude?.let { prefs[LAST_LAT] = it } ?: prefs.remove(LAST_LAT)
+            next.lastLongitude?.let { prefs[LAST_LON] = it } ?: prefs.remove(LAST_LON)
             prefs[BRIEFING_ENABLED] = next.briefingEnabled
             prefs[BRIEFING_TIME] = next.briefingTime.toSecondOfDay() / 60
         }
@@ -99,6 +105,8 @@ class SettingsStore(context: Context) {
             cloudKey = this[CLOUD_KEY] ?: defaults.cloudKey,
             cloudUrl = this[CLOUD_URL] ?: defaults.cloudUrl,
             cloudModel = this[CLOUD_MODEL] ?: defaults.cloudModel,
+            lastLatitude = this[LAST_LAT],
+            lastLongitude = this[LAST_LON],
             briefingEnabled = this[BRIEFING_ENABLED] ?: defaults.briefingEnabled,
             briefingTime = this[BRIEFING_TIME]?.let { LocalTime.of(it / 60, it % 60) } ?: defaults.briefingTime,
         )
@@ -116,6 +124,8 @@ class SettingsStore(context: Context) {
         val CLOUD_KEY = stringPreferencesKey("cloud_key")
         val CLOUD_URL = stringPreferencesKey("cloud_url")
         val CLOUD_MODEL = stringPreferencesKey("cloud_model")
+        val LAST_LAT = doublePreferencesKey("last_latitude")
+        val LAST_LON = doublePreferencesKey("last_longitude")
         val BRIEFING_ENABLED = booleanPreferencesKey("briefing_enabled")
         val BRIEFING_TIME = intPreferencesKey("briefing_time_minutes")
         val STOPWATCH_SINCE = longPreferencesKey("stopwatch_since")

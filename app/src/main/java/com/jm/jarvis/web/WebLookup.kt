@@ -96,6 +96,14 @@ class WebLookup(private val context: Context, private val settings: SettingsStor
         }
     }
 
+    /**
+     * Guarda a localização atual enquanto o app está na tela: o Android só entrega localização a quem
+     * está em primeiro plano, e o briefing das 7h30 roda em segundo plano, com a tela bloqueada.
+     */
+    suspend fun rememberLocation() {
+        runCatching { location(quick = true) }.onFailure { Log.w(TAG, "falha ao guardar a localização", it) }
+    }
+
     fun hasLocationPermission(): Boolean =
         context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
@@ -125,8 +133,24 @@ class WebLookup(private val context: Context, private val settings: SettingsStor
         val lastKnown = manager.allProviders
             .mapNotNull { runCatching { manager.getLastKnownLocation(it) }.getOrNull() }
             .maxByOrNull { it.time }
-        if (quick && lastKnown == null) return location(quick = false)
-        return fresh ?: lastKnown
+        if (quick && lastKnown == null && fresh == null) {
+            // Sem localização recente: usa a última guardada antes de esperar o GPS.
+            savedLocation()?.let { return it }
+            return location(quick = false)
+        }
+        val found = fresh ?: lastKnown
+        if (found != null) {
+            settings.update { it.copy(lastLatitude = found.latitude, lastLongitude = found.longitude) }
+            return found
+        }
+        return savedLocation()
+    }
+
+    private suspend fun savedLocation(): Location? {
+        val saved = settings.current()
+        val lat = saved.lastLatitude ?: return null
+        val lon = saved.lastLongitude ?: return null
+        return Location("salva").apply { latitude = lat; longitude = lon }
     }
 
     private suspend fun city(location: Location): String? {

@@ -56,6 +56,7 @@ class JarvisTools(
         @ToolParam(description = "Contato, app, destino ou música") alvo: String? = null,
         @ToolParam(description = "ligar/desligar; 0 a 100, mais ou menos; mensagem do WhatsApp") valor: String? = null,
     ): String { executed++
+        if (readOnly) return refused()
         val action = SpokenTime.normalize(acao)
         val target = alvo?.trim().orEmpty()
         return when {
@@ -78,6 +79,7 @@ class JarvisTools(
         @ToolParam(description = "Quando, como o usuário disse") quando: String? = null,
     ): String = runBlocking { executed++;
         val action = SpokenTime.normalize(acao)
+        if (readOnly && !("list" in action || "ver" in action || "quais" in action)) return@runBlocking refused()
         when {
             "cancel" in action || "apag" in action || "remov" in action ->
                 texto?.let { reminders.cancel(it) } ?: "Diga qual lembrete cancelar."
@@ -96,6 +98,7 @@ class JarvisTools(
         @ToolParam(description = "O fato, em uma frase") fato: String? = null,
     ): String = runBlocking { executed++;
         val action = SpokenTime.normalize(acao)
+        if (readOnly && !("list" in action || "ver" in action)) return@runBlocking refused()
         when {
             "esquec" in action || "apag" in action -> fato?.let { memory.forget(it) } ?: "Diga o que devo esquecer."
             "list" in action || "ver" in action -> memory.describe()
@@ -112,6 +115,7 @@ class JarvisTools(
         @ToolParam(description = "Dias de repetição") dias: List<String>? = null,
         @ToolParam(description = "Nome, se o usuário disser") rotulo: String? = null,
     ): String { executed++
+        if (readOnly) return refused()
         val action = SpokenTime.normalize(acao)
         return when {
             "desperta" in action || "alarme" in action -> {
@@ -146,10 +150,22 @@ class JarvisTools(
             "contin" in action || "retom" in action -> StopwatchAction.RESUME
             else -> StopwatchAction.STATUS
         }
+        if (readOnly && chosen != StopwatchAction.STATUS) return@runBlocking refused()
         stopwatch.apply(chosen)
     }
     /** Quantas ferramentas a IA executou na resposta em andamento; o [Brain] usa para pegar "Registrado" sem ação. */
     @Volatile var executed = 0
+
+    /**
+     * Ligado pelo [Brain] quando o usuário faz uma pergunta: as ferramentas que mudam algo se recusam,
+     * e o modelo responde em vez de agir.
+     */
+    @Volatile var readOnly = false
+
+    private fun refused(): String {
+        executed-- // a ferramenta não rodou: não conta para a trava de "feito" sem ação
+        return "Nada foi alterado, porque o usuário fez uma pergunta. Responda a pergunta, consultando se precisar."
+    }
 
     /** Fontes consultadas na resposta em andamento; o [Brain] limpa antes e lê depois de cada pergunta. */
     val sources = mutableListOf<Source>()
@@ -179,6 +195,7 @@ class JarvisTools(
         @ToolParam(description = "Nome da rotina") habito: String,
         @ToolParam(description = "Quantidade, se disser") quantidade: Double? = null,
     ): String = runBlocking { executed++;
+        if (readOnly) return@runBlocking refused()
         val habit = find(habito) ?: return@runBlocking notFound(habito)
         val target = habit.dailyTarget
         // "1 litro" chega como 1: numa rotina em ml, até 10 só pode ser litros.
@@ -196,6 +213,16 @@ class JarvisTools(
         "Registrado: ${habit.name}$added. Hoje: $status."
     }
 
+    @Tool(description = "Quanto o usuário já fez de uma rotina hoje, sem registrar nada.")
+    fun progressoHabito(
+        @ToolParam(description = "Nome da rotina") habito: String,
+    ): String = runBlocking {
+        executed++
+        val habit = find(habito) ?: return@runBlocking notFound(habito)
+        val status = habits.statusOf(habit.id) ?: return@runBlocking "Sem dados de ${habit.name} hoje."
+        "${habit.name}: ${Progress.describe(status)}" + if (status.completeToday) " (completa)" else " (pendente)"
+    }
+
     @Tool(description = "Rotinas de hoje e o que falta.")
     fun listarHabitos(): String = runBlocking { executed++; todayLines() }
 
@@ -206,6 +233,7 @@ class JarvisTools(
         @ToolParam(description = "Horários HH:mm") horarios: List<String>? = null,
         @ToolParam(description = "Vezes por semana") vezesPorSemana: Int? = null,
     ): String = runBlocking { executed++;
+        if (readOnly) return@runBlocking refused()
         if (habits.habits().any { HabitMatcher.sameName(it.name, nome) }) return@runBlocking "Já existe uma rotina chamada $nome."
         val times = horarios?.map { parseClock(it) ?: return@runBlocking "Não entendi o horário \"$it\". Use HH:mm." }
         val draft = RoutineDraft(
@@ -232,6 +260,7 @@ class JarvisTools(
         @ToolParam(description = "Nome da rotina") habito: String,
         @ToolParam(description = "Minutos") minutos: Int,
     ): String = runBlocking { executed++;
+        if (readOnly) return@runBlocking refused()
         val habit = find(habito) ?: return@runBlocking notFound(habito)
         if (minutos !in 1..240) return@runBlocking "Só consigo adiar de 1 a 240 minutos."
         habits.snooze(habit.id, minutos.toLong())

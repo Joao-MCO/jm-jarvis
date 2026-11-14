@@ -2,8 +2,10 @@ package com.jm.jarvis
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -11,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
+import com.jm.jarvis.brain.ReplyEvent
 import com.jm.jarvis.ui.JarvisAppUi
 import kotlinx.coroutines.launch
 
@@ -31,6 +34,7 @@ class MainActivity : ComponentActivity() {
         app.scope.launch {
             app.habits.seedIfNeeded(app.settings)
             app.rearmAll()
+            app.web.rememberLocation()
         }
 
         if (savedInstanceState == null) {
@@ -43,6 +47,7 @@ class MainActivity : ComponentActivity() {
             if (missing.isNotEmpty()) permissions.launch(missing.toTypedArray())
             handleListen(intent)
         }
+        handleDebugText(intent)
 
         setContent { JarvisAppUi(app, listenRequests) }
     }
@@ -50,6 +55,22 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleListen(intent)
+        handleDebugText(intent)
+    }
+
+    /**
+     * Só em build de depuração: `adb shell am start -n ... --es jarvis_texto "frase"` roda a frase pelo
+     * mesmo caminho da conversa (atalhos, IA, ferramentas) e escreve a resposta no log `JarvisTeste`.
+     * No app de verdade isto não existe, então nenhum outro app consegue acionar comandos.
+     */
+    private fun handleDebugText(intent: Intent?) {
+        val debuggable = applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+        val text = intent?.getStringExtra("jarvis_texto")?.takeIf { debuggable } ?: return
+        container.scope.launch {
+            container.brain.reply(text).collect { event ->
+                if (event is ReplyEvent.Done) Log.i("JarvisTeste", "«$text» -> ${event.reply.text}")
+            }
+        }
     }
 
     /** O modelo ocupa ~600 MB: sai da memória quando o app sai da tela e volta na próxima conversa. */
