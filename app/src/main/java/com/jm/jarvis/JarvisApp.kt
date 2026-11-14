@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import com.jm.jarvis.brain.Brain
 import com.jm.jarvis.brain.JarvisTools
+import com.jm.jarvis.domain.BriefingService
 import com.jm.jarvis.domain.MemoryService
 import com.jm.jarvis.domain.ReminderService
 import com.jm.jarvis.domain.StopwatchService
@@ -49,8 +50,9 @@ class AppContainer(context: Context) {
     val web = WebLookup(context, settings)
     val phone = PhoneActions(context)
     val stopwatch = StopwatchService(settings, notifications)
+    val briefing = BriefingService(context, settings, scheduler, habits, reminders, calendar, web)
     val brain = Brain(context, habits, memory) {
-        JarvisTools(habits, calendar, web, phone, stopwatch, reminders, memory)
+        JarvisTools(habits, calendar, web, phone, stopwatch, reminders, memory, briefing)
     }
 }
 

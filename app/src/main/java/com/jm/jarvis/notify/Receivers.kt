@@ -35,7 +35,19 @@ class ReminderReceiver : BroadcastReceiver() {
                 ReminderScheduler.ACTION_HABIT -> if (habitId != null) alertHabit(habitId)
                 ReminderScheduler.ACTION_CALENDAR -> calendar.onAlarm()
                 ReminderScheduler.ACTION_REMINDER -> if (habitId != null) alertReminder(habitId)
+                ReminderScheduler.ACTION_BRIEFING -> briefMorning()
             }
+        }
+    }
+
+    private suspend fun AppContainer.briefMorning() {
+        briefing.schedule() // o de amanhã, antes de qualquer coisa que possa falhar
+        val text = briefing.text()
+        val decision = AlertPolicy.forHabit(AlertMode.SPEAK, settings.current(), LocalTime.now(), speaker.shouldStayQuiet())
+        notifications.showBriefing(text, decision.channel)
+        if (decision.speak) {
+            delay(800)
+            speaker.speak(text, timeoutMs = 25_000)
         }
     }
 
@@ -109,6 +121,7 @@ class BootReceiver : BroadcastReceiver() {
         runAsync(context) {
             habits.rescheduleAll()
             reminders.rescheduleAll()
+            briefing.schedule()
             calendar.refresh()
         }
     }

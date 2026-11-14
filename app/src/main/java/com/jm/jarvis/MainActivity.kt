@@ -32,6 +32,7 @@ class MainActivity : ComponentActivity() {
             app.habits.seedIfNeeded(app.settings)
             app.habits.rescheduleAll()
             app.reminders.rescheduleAll()
+            app.briefing.schedule()
             app.calendar.refresh()
         }
 

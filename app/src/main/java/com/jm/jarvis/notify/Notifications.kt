@@ -113,6 +113,19 @@ class Notifications(private val context: Context) {
 
     fun cancelReminder(reminderId: Long) = manager.cancel(reminderNotificationId(reminderId))
 
+    /** O briefing fica escrito na notificação, para ler depois se não deu para ouvir. */
+    fun showBriefing(text: String, channel: AlertChannel) {
+        val notification = Notification.Builder(context, channel.channelId)
+            .setSmallIcon(R.drawable.ic_jarvis)
+            .setContentTitle("Briefing do JARVIS")
+            .setContentText(text)
+            .setStyle(Notification.BigTextStyle().bigText(text))
+            .setAutoCancel(true)
+            .setContentIntent(openApp())
+            .build()
+        manager.notify(BRIEFING_ID, notification)
+    }
+
     /** Faixa própria, para não colidir com as rotinas. */
     private fun reminderNotificationId(reminderId: Long): Int = 1_000_000 + (reminderId % 1_000_000).toInt()
 
@@ -157,5 +170,6 @@ class Notifications(private val context: Context) {
 
         /** Longe dos ids das rotinas, que começam em 1. */
         const val STOPWATCH_ID = Int.MAX_VALUE - 1
+        const val BRIEFING_ID = Int.MAX_VALUE - 2
     }
 }

@@ -61,9 +61,12 @@ class WebLookup(private val context: Context, private val settings: SettingsStor
         Lookup(LookupText.wikipedia(title, summary.optString("extract")), listOf(Source("Wikipedia: $title", url)))
     }
 
-    /** Clima agora e a previsão de [days] dias contando hoje (de 1 a 7). */
-    suspend fun weather(days: Int = 2): Lookup {
-        val location = location()
+    /**
+     * Clima agora e a previsão de [days] dias contando hoje (de 1 a 7).
+     * @param quick usa só a última localização conhecida, sem esperar o GPS (para o briefing).
+     */
+    suspend fun weather(days: Int = 2, quick: Boolean = false): Lookup {
+        val location = location(quick)
             ?: return Lookup("Não consegui a localização do celular. Peça ao usuário para permitir a localização em Ajustes e deixá-la ligada.")
         return attempt("consultar o clima") {
             val url = String.format(
@@ -106,11 +109,11 @@ class WebLookup(private val context: Context, private val settings: SettingsStor
         }
 
     @SuppressLint("MissingPermission")
-    private suspend fun location(): Location? {
+    private suspend fun location(quick: Boolean): Location? {
         if (!hasLocationPermission()) return null
         val manager = context.getSystemService(LocationManager::class.java)
         val provider = if (manager.hasProvider(LocationManager.FUSED_PROVIDER)) LocationManager.FUSED_PROVIDER else LocationManager.NETWORK_PROVIDER
-        val fresh = runCatching {
+        val fresh = if (quick) null else runCatching {
             withTimeoutOrNull(8_000) {
                 suspendCancellableCoroutine { cont ->
                     val signal = CancellationSignal()
@@ -119,9 +122,11 @@ class WebLookup(private val context: Context, private val settings: SettingsStor
                 }
             }
         }.getOrNull()
-        return fresh ?: manager.allProviders
+        val lastKnown = manager.allProviders
             .mapNotNull { runCatching { manager.getLastKnownLocation(it) }.getOrNull() }
             .maxByOrNull { it.time }
+        if (quick && lastKnown == null) return location(quick = false)
+        return fresh ?: lastKnown
     }
 
     private suspend fun city(location: Location): String? {

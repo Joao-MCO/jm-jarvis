@@ -24,6 +24,9 @@ data class Settings(
     val calendarSpeech: Boolean = true,
     /** Chave pessoal da Tavily para pesquisar na internet; fica só no armazenamento privado do app. */
     val tavilyKey: String = "",
+    /** Briefing falado: clima, agenda, rotinas e lembretes do dia. */
+    val briefingEnabled: Boolean = true,
+    val briefingTime: LocalTime = LocalTime.of(7, 30),
 ) {
     /** Se [time] cai no horário de silêncio, que pode atravessar a meia-noite. */
     fun isQuietAt(time: LocalTime): Boolean {
@@ -51,6 +54,8 @@ class SettingsStore(context: Context) {
             prefs[QUIET_END] = next.quietEnd.toSecondOfDay() / 60
             prefs[CALENDAR_SPEECH] = next.calendarSpeech
             prefs[TAVILY_KEY] = next.tavilyKey
+            prefs[BRIEFING_ENABLED] = next.briefingEnabled
+            prefs[BRIEFING_TIME] = next.briefingTime.toSecondOfDay() / 60
         }
     }
 
@@ -81,6 +86,8 @@ class SettingsStore(context: Context) {
             quietEnd = this[QUIET_END]?.let { LocalTime.of(it / 60, it % 60) } ?: defaults.quietEnd,
             calendarSpeech = this[CALENDAR_SPEECH] ?: defaults.calendarSpeech,
             tavilyKey = this[TAVILY_KEY] ?: defaults.tavilyKey,
+            briefingEnabled = this[BRIEFING_ENABLED] ?: defaults.briefingEnabled,
+            briefingTime = this[BRIEFING_TIME]?.let { LocalTime.of(it / 60, it % 60) } ?: defaults.briefingTime,
         )
     }
 
@@ -92,6 +99,8 @@ class SettingsStore(context: Context) {
         val CALENDAR_SPEECH = booleanPreferencesKey("calendar_speech")
         val SEEDED = booleanPreferencesKey("seeded")
         val TAVILY_KEY = stringPreferencesKey("tavily_key")
+        val BRIEFING_ENABLED = booleanPreferencesKey("briefing_enabled")
+        val BRIEFING_TIME = intPreferencesKey("briefing_time_minutes")
         val STOPWATCH_SINCE = longPreferencesKey("stopwatch_since")
         val STOPWATCH_ACCUMULATED = longPreferencesKey("stopwatch_accumulated")
     }

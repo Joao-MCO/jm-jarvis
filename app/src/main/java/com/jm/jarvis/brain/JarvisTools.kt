@@ -7,6 +7,7 @@ import com.jm.jarvis.calendar.CalendarAnnouncer
 import com.jm.jarvis.data.AlertMode
 import com.jm.jarvis.data.Habit
 import com.jm.jarvis.data.ScheduleType
+import com.jm.jarvis.domain.BriefingService
 import com.jm.jarvis.domain.DraftResult
 import com.jm.jarvis.domain.GoalKind
 import com.jm.jarvis.domain.HabitMatcher
@@ -44,6 +45,7 @@ class JarvisTools(
     private val stopwatch: StopwatchService,
     private val reminders: ReminderService,
     private val memory: MemoryService,
+    private val briefing: BriefingService,
 ) : ToolSet {
 
     @Tool(description = "Lembretes avulsos: criar, listar ou cancelar. Ex.: me lembra de ligar para o dentista amanhã às 15h.")
@@ -208,11 +210,11 @@ class JarvisTools(
         "Lembrete de ${habit.name} adiado para ${Progress.hhmm(LocalTime.now().plusMinutes(minutos.toLong()))}."
     }
 
-    @Tool(description = "Resume o dia do usuário: rotinas feitas e pendentes, próximo aviso e eventos de hoje na agenda.")
+    @Tool(description = "Resume o dia do usuário: clima, agenda, rotinas pendentes, lembretes e o próximo aviso.")
     fun resumoDoDia(): String = runBlocking {
         val today = habits.todayState()
         val next = today.next?.let { "Próximo aviso: ${it.habit.name}, ${Progress.upcoming(it.at, today.date)}." }.orEmpty()
-        "${todayLines()} $next ${agenda(1)}".trim()
+        "${briefing.text()} $next".trim()
     }
 
     @Tool(description = "Lista os eventos da agenda do usuário a partir de agora.")

@@ -43,7 +43,8 @@ import com.jm.jarvis.domain.Progress
 import com.jm.jarvis.voice.Speaker
 import kotlinx.coroutines.launch
 
-private enum class QuietEdge { START, END }
+/** Qual horário o seletor está editando. */
+private enum class QuietEdge { START, END, BRIEFING }
 
 @Composable
 fun SettingsScreen(app: AppContainer) {
@@ -81,6 +82,7 @@ fun SettingsScreen(app: AppContainer) {
     fun update(transform: (Settings) -> Settings) {
         scope.launch {
             app.settings.update(transform)
+            app.briefing.schedule()
             app.calendar.refresh()
             nextCalendar = app.calendar.describeNext()
         }
@@ -108,6 +110,21 @@ fun SettingsScreen(app: AppContainer) {
                 Text("às")
                 TextButton(onClick = { picking = QuietEdge.END }) { Text(Progress.hhmm(current.quietEnd)) }
             }
+        }
+
+        SwitchRow(
+            "Briefing da manhã",
+            "Às ${Progress.hhmm(current.briefingTime)}: clima, agenda, rotinas e lembretes do dia, falados e na notificação.",
+            current.briefingEnabled,
+        ) { on -> update { it.copy(briefingEnabled = on) } }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (current.briefingEnabled) {
+                Text("Horário")
+                TextButton(onClick = { picking = QuietEdge.BRIEFING }) { Text(Progress.hhmm(current.briefingTime)) }
+            }
+            OutlinedButton(onClick = {
+                scope.launch { app.speaker.speak(app.briefing.text(), Speaker.Purpose.REPLY, timeoutMs = 40_000) }
+            }) { Text("Ouvir briefing agora") }
         }
 
         SwitchRow(
@@ -204,10 +221,20 @@ fun SettingsScreen(app: AppContainer) {
 
     picking?.let { edge ->
         TimeDialog(
-            initial = if (edge == QuietEdge.START) current.quietStart else current.quietEnd,
+            initial = when (edge) {
+                QuietEdge.START -> current.quietStart
+                QuietEdge.END -> current.quietEnd
+                QuietEdge.BRIEFING -> current.briefingTime
+            },
             onDismiss = { picking = null },
             onConfirm = { time ->
-                update { if (edge == QuietEdge.START) it.copy(quietStart = time) else it.copy(quietEnd = time) }
+                update {
+                    when (edge) {
+                        QuietEdge.START -> it.copy(quietStart = time)
+                        QuietEdge.END -> it.copy(quietEnd = time)
+                        QuietEdge.BRIEFING -> it.copy(briefingTime = time)
+                    }
+                }
                 picking = null
             },
         )
