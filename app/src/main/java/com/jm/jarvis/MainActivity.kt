@@ -30,10 +30,7 @@ class MainActivity : ComponentActivity() {
         // Cria as rotinas na primeira abertura e garante que todos os alarmes estão armados.
         app.scope.launch {
             app.habits.seedIfNeeded(app.settings)
-            app.habits.rescheduleAll()
-            app.reminders.rescheduleAll()
-            app.briefing.schedule()
-            app.calendar.refresh()
+            app.rearmAll()
         }
 
         if (savedInstanceState == null) {

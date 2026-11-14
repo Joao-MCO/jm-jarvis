@@ -118,12 +118,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action !in HANDLED_ACTIONS) return
-        runAsync(context) {
-            habits.rescheduleAll()
-            reminders.rescheduleAll()
-            briefing.schedule()
-            calendar.refresh()
-        }
+        runAsync(context) { rearmAll() }
     }
 
     private companion object {

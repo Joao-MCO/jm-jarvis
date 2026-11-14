@@ -103,9 +103,9 @@ class HabitService(
         return if (due) Progress.status(habit, logs, now.toLocalDate(), zone) else null
     }
 
+    /** Só os alarmes; quem chama atualiza o widget no fim (ver AppContainer.rearmAll). */
     suspend fun rescheduleAll() {
         dao.habits().forEach { reschedule(it.id) }
-        JarvisWidget.refresh(context)
     }
 
     suspend fun seedIfNeeded(settings: SettingsStore) {

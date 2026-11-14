@@ -2,6 +2,9 @@ package com.jm.jarvis
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
+import com.jm.jarvis.widget.JarvisWidget
+import kotlinx.coroutines.withTimeoutOrNull
 import com.jm.jarvis.brain.Brain
 import com.jm.jarvis.brain.JarvisTools
 import com.jm.jarvis.domain.BriefingService
@@ -53,6 +56,32 @@ class AppContainer(context: Context) {
     val briefing = BriefingService(context, settings, scheduler, habits, reminders, calendar, web)
     val brain = Brain(context, habits, memory) {
         JarvisTools(habits, calendar, web, phone, stopwatch, reminders, memory, briefing)
+    }
+
+    /**
+     * Arma de novo todos os alarmes (ao abrir o app, ao reiniciar o celular, ao mudar a hora).
+     * Cada passo é independente e tem prazo: um passo travado não pode impedir os outros.
+     */
+    suspend fun rearmAll() {
+        step("rotinas") { habits.rescheduleAll() }
+        step("lembretes") { reminders.rescheduleAll() }
+        step("briefing") { briefing.schedule() }
+        step("agenda") { calendar.refresh() }
+        step("widget") { JarvisWidget.refresh(appContext) }
+    }
+
+    private val appContext = context.applicationContext
+
+    private suspend fun step(name: String, block: suspend () -> Unit) {
+        val started = System.currentTimeMillis()
+        val finished = runCatching { withTimeoutOrNull(15_000) { block() } }
+            .onFailure { Log.w(TAG, "falha ao rearmar $name", it) }
+            .getOrNull()
+        Log.i(TAG, "rearmar $name: ${if (finished == null) "não terminou" else "ok"} em ${System.currentTimeMillis() - started} ms")
+    }
+
+    private companion object {
+        const val TAG = "JarvisAlarmes"
     }
 }
 
