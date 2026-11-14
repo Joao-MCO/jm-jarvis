@@ -1,0 +1,90 @@
+package com.jm.jarvis.notify
+
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import com.jm.jarvis.AppContainer
+import com.jm.jarvis.container
+import com.jm.jarvis.domain.AlertPolicy
+import com.jm.jarvis.domain.Progress
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.time.LocalTime
+
+/** Roda [block] fora da thread principal, mantendo o processo vivo até terminar. */
+private fun BroadcastReceiver.runAsync(context: Context, block: suspend AppContainer.() -> Unit) {
+    val pending = goAsync()
+    val app = context.container
+    app.scope.launch {
+        try {
+            app.block()
+        } finally {
+            pending.finish()
+        }
+    }
+}
+
+/** Disparado pelos alarmes de rotina e da agenda. */
+class ReminderReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        val habitId = intent.data?.lastPathSegment?.toLongOrNull()
+        runAsync(context) {
+            when (intent.action) {
+                ReminderScheduler.ACTION_HABIT -> if (habitId != null) alertHabit(habitId)
+                ReminderScheduler.ACTION_CALENDAR -> calendar.onAlarm()
+            }
+        }
+    }
+
+    private suspend fun AppContainer.alertHabit(habitId: Long) {
+        val status = habits.onReminderDue(habitId) ?: return
+        val decision = AlertPolicy.forHabit(status.habit.alertMode, settings.current(), LocalTime.now(), speaker.shouldStayQuiet())
+        notifications.showHabit(status, decision.channel)
+        if (decision.speak) {
+            delay(800) // deixa o som da notificação tocar antes da fala
+            speaker.speak(Progress.spoken(status))
+        }
+    }
+}
+
+/** Botões Feito / Adiar / Pular da notificação. */
+class NotificationActionReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        val habitId = intent.data?.lastPathSegment?.toLongOrNull() ?: return
+        runAsync(context) {
+            when (intent.action) {
+                ACTION_DONE -> habits.logQuick(habitId)
+                ACTION_SNOOZE -> habits.snooze(habitId, SNOOZE_MINUTES)
+                ACTION_SKIP -> habits.skip(habitId)
+            }
+            notifications.cancel(habitId)
+        }
+    }
+
+    companion object {
+        const val ACTION_DONE = "com.jm.jarvis.action.DONE"
+        const val ACTION_SNOOZE = "com.jm.jarvis.action.SNOOZE"
+        const val ACTION_SKIP = "com.jm.jarvis.action.SKIP"
+        const val SNOOZE_MINUTES = 15L
+    }
+}
+
+/** Alarmes não sobrevivem a reinício nem a mudança de hora: tudo é reagendado. */
+class BootReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action !in HANDLED_ACTIONS) return
+        runAsync(context) {
+            habits.rescheduleAll()
+            calendar.refresh()
+        }
+    }
+
+    private companion object {
+        val HANDLED_ACTIONS = setOf(
+            Intent.ACTION_BOOT_COMPLETED,
+            Intent.ACTION_MY_PACKAGE_REPLACED,
+            Intent.ACTION_TIME_CHANGED,
+            Intent.ACTION_TIMEZONE_CHANGED,
+        )
+    }
+}

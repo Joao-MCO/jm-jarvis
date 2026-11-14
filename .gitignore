@@ -1,0 +1,12 @@
+.gradle/
+.kotlin/
+build/
+/local.properties
+/.idea/
+*.iml
+/captures
+.cxx/
+# Modelos de IA (gigabytes) ficam fora do git
+/models/
+# Arquivo temporário deixado pelo instalador do Android Studio
+inst_user_settings.tmp

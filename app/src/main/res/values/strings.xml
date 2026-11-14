@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">JARVIS</string>
+    <string name="widget_description">Rotinas do dia e o próximo aviso</string>
+    <color name="launcher_background">#FF070D16</color>
+</resources>
