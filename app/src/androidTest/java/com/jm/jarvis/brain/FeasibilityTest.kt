@@ -16,6 +16,8 @@ import com.google.ai.edge.litertlm.ExperimentalFlags
 import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.tool
+import com.jm.jarvis.container
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -37,6 +39,16 @@ import java.util.Locale
 @RunWith(AndroidJUnit4::class)
 class FeasibilityTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
+    private val app = context.container
+
+    /** As mesmas instruções que o app usa, com as rotinas e os fatos reais do aparelho. */
+    private val persona: String = runBlocking {
+        app.brain.persona(
+            routines = app.habits.habits().filter { it.active }.joinToString(", ") { it.name },
+            facts = app.memory.forPrompt(),
+            now = LocalDateTime.now(),
+        )
+    }
     private val report = StringBuilder()
     private val reportFile = File(
         context.getExternalFilesDir(null),
@@ -102,7 +114,7 @@ class FeasibilityTest {
 
     private fun measureSpeed(engine: Engine): List<BenchmarkInfo> {
         line("### Velocidade de fala")
-        val config = ConversationConfig(systemInstruction = Contents.of(PERSONA), samplerConfig = GREEDY)
+        val config = ConversationConfig(systemInstruction = Contents.of(persona), samplerConfig = GREEDY)
         return SPEED_PROMPTS.map { prompt ->
             engine.createConversation(config).use { conversation ->
                 val reply = conversation.sendMessage(prompt)
@@ -123,8 +135,9 @@ class FeasibilityTest {
     private fun measureTools(engine: Engine): ToolScore {
         line("### Ferramentas")
         val config = ConversationConfig(
-            systemInstruction = Contents.of("$PERSONA\nAgora: ${now()}."),
-            tools = listOf(tool(JarvisToolSchema())),
+            systemInstruction = Contents.of(persona),
+            // As ferramentas reais do app; com a execução automática desligada, nada é feito de verdade.
+            tools = listOf(tool(app.newTools())),
             samplerConfig = GREEDY,
             automaticToolCalling = false,
         )
@@ -205,21 +218,11 @@ class FeasibilityTest {
         /** Escolha gulosa (sempre o token mais provável): resultados repetíveis entre execuções. */
         val GREEDY = SamplerConfig(topK = 1, topP = 1.0, temperature = 1.0)
 
-        const val PERSONA =
-            "Você é JARVIS, o assistente pessoal do usuário. Responda sempre em português do Brasil, " +
-                "em poucas frases, com tom educado e um toque de humor. Quando o pedido for registrar, criar, " +
-                "adiar, guardar ou consultar algo, use a ferramenta adequada. Nunca invente dados do usuário."
-
         val SPEED_PROMPTS = listOf(
             "Explique em um parágrafo de umas 80 palavras por que beber água ao longo do dia faz bem.",
             "Me dê três dicas curtas para manter a constância na academia.",
             "Escreva uma mensagem de bom dia motivadora com umas 60 palavras.",
         )
-
-        private val PT_BR: Locale = Locale.forLanguageTag("pt-BR")
-
-        fun now(): String =
-            LocalDateTime.now().format(DateTimeFormatter.ofPattern("EEEE, d 'de' MMMM 'de' yyyy, HH:mm", PT_BR))
 
         fun fmt(pattern: String, vararg args: Any?): String = String.format(Locale.ROOT, pattern, *args)
 

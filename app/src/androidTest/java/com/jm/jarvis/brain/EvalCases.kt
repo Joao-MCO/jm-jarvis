@@ -42,28 +42,45 @@ private fun num(key: String, expected: Int) = ArgCheck.Number(key, expected.toDo
 fun normalize(text: String): String =
     Normalizer.normalize(text, Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "").lowercase()
 
+/**
+ * Frases do dia a dia contra as ferramentas reais do [JarvisTools]. O LiteRT-LM expõe métodos e
+ * parâmetros em snake_case: `registrarHabito` vira `registrar_habito`.
+ */
 val EVAL_CASES = listOf(
+    // Rotinas
     EvalCase("Bebi 500 ml de água agora", "registrar_habito", listOf(has("habito", "agua"), num("quantidade", 500))),
-    EvalCase("Já escovei os dentes", "registrar_habito", listOf(has("habito", "dente"))),
+    EvalCase("Já escovei os dentes", "registrar_habito", listOf(has("habito", "dente", "escov"))),
     EvalCase("Tomei os suplementos", "registrar_habito", listOf(has("habito", "suplement"))),
     EvalCase("Fui na academia hoje", "registrar_habito", listOf(has("habito", "academia", "treino"))),
-    EvalCase("Acabei de rezar o terço", "registrar_habito", listOf(has("habito", "reza", "terco", "oracao"))),
-    EvalCase("Me lembra de beber água a cada 45 minutos", "criar_habito", listOf(has("nome", "agua"), num("intervalo_minutos", 45))),
-    EvalCase("Quero criar o hábito de ir à academia 5 vezes por semana", "criar_habito", listOf(has("nome", "academia"), num("vezes_por_semana", 5))),
-    EvalCase("Cria um hábito de tomar creatina às 8h", "criar_habito", listOf(has("nome", "creatina"), has("horarios", "8"))),
-    EvalCase("Adia o lembrete da água por 20 minutos", "adiar_lembrete", listOf(has("habito", "agua"), num("minutos", 20))),
-    EvalCase("Minha meta é ler 12 livros este ano", "criar_meta", listOf(has("titulo", "livro", "ler"))),
-    EvalCase("Quero correr uma meia maratona até junho", "criar_meta", listOf(has("titulo", "maratona"))),
-    EvalCase("Li 30 páginas do livro hoje", "registrar_progresso_meta", listOf(has("meta", "livro", "ler", "leitura"), num("valor", 30))),
-    EvalCase("Como estão minhas metas?", "resumo_metas"),
-    EvalCase("Me lembra de ligar para o dentista amanhã às 15h", "criar_lembrete", listOf(has("texto", "dentista"), has("quando", "amanha", "14"))),
-    EvalCase("Daqui a 20 minutos me lembra de tirar o bolo do forno", "criar_lembrete", listOf(has("texto", "bolo"), has("quando", "20"))),
-    EvalCase("Lembre que eu sou alérgico a camarão", "lembrar_fato", listOf(has("fato", "camarao"))),
-    EvalCase("Anota que meu aniversário é 3 de março", "lembrar_fato", listOf(has("fato", "marco", "03"))),
-    EvalCase("Qual é o nome da minha academia?", "buscar_memoria", listOf(has("consulta", "academia"))),
-    EvalCase("Como foi meu dia?", "resumo_do_dia"),
-    EvalCase("Quais hábitos ainda faltam hoje?", "listar_habitos"),
+    EvalCase("Quero criar o hábito de meditar 5 vezes por semana", "criar_habito", listOf(has("nome", "medit"), num("vezes_por_semana", 5))),
+    EvalCase("Adia a água por 20 minutos", "adiar_lembrete", listOf(has("habito", "agua"), num("minutos", 20))),
+    EvalCase("Quais rotinas ainda faltam hoje?", "listar_habitos"),
+    EvalCase("Como está o meu dia?", "resumo_do_dia"),
+    // Lembretes e memória
+    EvalCase("Me lembra de ligar para o dentista amanhã às 15h", "lembrete", listOf(has("acao", "cri"), has("texto", "dentista"), has("quando", "amanha"))),
+    EvalCase("Daqui a 20 minutos me lembra de tirar o bolo do forno", "lembrete", listOf(has("texto", "bolo"), has("quando", "20"))),
+    EvalCase("Quais lembretes eu tenho?", "lembrete", listOf(has("acao", "list", "ver"))),
+    EvalCase("Lembra que eu sou alérgico a camarão", "memoria", listOf(has("acao", "guard"), has("fato", "camarao"))),
+    // Relógio
+    EvalCase("Me acorda amanhã às 6h30", "relogio", listOf(has("acao", "desperta", "alarme"), has("horario", "6"))),
+    EvalCase("Coloca um despertador às 7h de segunda a sexta", "relogio", listOf(has("acao", "desperta", "alarme"), has("horario", "7"))),
+    EvalCase("Timer de 10 minutos", "relogio", listOf(has("acao", "timer"), num("minutos", 10))),
+    EvalCase("Inicia o cronômetro", "cronometro", listOf(has("acao", "inici", "comec"))),
+    EvalCase("Pausa o cronômetro", "cronometro", listOf(has("acao", "paus", "par"))),
+    // Celular
+    EvalCase("Liga a lanterna", "celular", listOf(has("acao", "lanterna"))),
+    EvalCase("Abaixa o volume", "celular", listOf(has("acao", "volume"))),
+    EvalCase("Abre o Spotify", "celular", listOf(has("acao", "abr"), has("alvo", "spotify"))),
+    EvalCase("Liga para a Maria", "celular", listOf(has("acao", "lig"), has("alvo", "maria"))),
+    EvalCase("Manda um WhatsApp para o Pedro dizendo que vou me atrasar", "celular", listOf(has("acao", "whats"), has("alvo", "pedro"))),
+    EvalCase("Traça uma rota para o aeroporto", "celular", listOf(has("acao", "rota"), has("alvo", "aeroporto"))),
+    EvalCase("Toca Legião Urbana", "celular", listOf(has("acao", "music", "toca"), has("alvo", "legiao"))),
+    // Informação
+    EvalCase("Vai chover amanhã?", "clima"),
+    EvalCase("Quem foi Santos Dumont?", "consultar_wikipedia", listOf(has("termo", "dumont"))),
+    EvalCase("Quem ganhou o último jogo do Flamengo?", "pesquisar_internet", listOf(has("consulta", "flamengo"))),
+    EvalCase("O que eu tenho na agenda hoje?", "eventos_da_agenda"),
+    // Conversa sem ferramenta
     EvalCase("Bom dia, Jarvis!", null),
-    EvalCase("Me conta uma curiosidade sobre o espaço", null),
     EvalCase("Obrigado, era só isso", null),
 )

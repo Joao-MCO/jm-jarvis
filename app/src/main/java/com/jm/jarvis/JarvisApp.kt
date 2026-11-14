@@ -56,9 +56,10 @@ class AppContainer(context: Context) {
     val control = PhoneControl(context, phone)
     val stopwatch = StopwatchService(settings, notifications)
     val briefing = BriefingService(context, settings, scheduler, habits, reminders, calendar, web)
-    val brain = Brain(context, habits, memory) {
-        JarvisTools(habits, calendar, web, phone, stopwatch, reminders, memory, briefing, control)
-    }
+    /** As ferramentas da IA; uma instância por conversa, porque guardam as fontes consultadas. */
+    fun newTools() = JarvisTools(habits, calendar, web, phone, stopwatch, reminders, memory, briefing, control)
+
+    val brain = Brain(context, habits, memory, ::newTools)
 
     /**
      * Arma de novo todos os alarmes (ao abrir o app, ao reiniciar o celular, ao mudar a hora).
