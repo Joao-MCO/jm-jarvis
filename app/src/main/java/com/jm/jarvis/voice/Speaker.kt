@@ -9,6 +9,8 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -48,6 +50,48 @@ class Speaker(private val context: Context) {
                 .build()
             withTimeoutOrNull(timeoutMs) { speakNow(text, attributes) } ?: false.also { Log.w(TAG, "fala não terminou em $timeoutMs ms") }
         }
+
+    /**
+     * Fala as frases conforme chegam, em fila, sem esperar a resposta inteira. Termina quando
+     * [sentences] acaba e a última frase foi dita.
+     */
+    suspend fun speakAll(sentences: Flow<String>, purpose: Purpose = Purpose.REPLY) = withContext(Dispatchers.Main) {
+        val attributes = AudioAttributes.Builder()
+            .setUsage(purpose.usage)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+            .build()
+        val tts = openEngine(attributes) ?: return@withContext
+        val focus = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK).setAudioAttributes(attributes).build()
+        val finished = Channel<Unit>(Channel.UNLIMITED)
+        tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) = Unit
+            override fun onDone(utteranceId: String?) {
+                finished.trySend(Unit)
+            }
+
+            @Deprecated("Deprecated in Java")
+            override fun onError(utteranceId: String?) {
+                finished.trySend(Unit)
+            }
+
+            override fun onError(utteranceId: String?, errorCode: Int) {
+                Log.w(TAG, "erro ao falar: código $errorCode")
+                finished.trySend(Unit)
+            }
+        })
+        audio.requestAudioFocus(focus)
+        var queued = 0
+        try {
+            sentences.collect { sentence ->
+                if (tts.speak(sentence, TextToSpeech.QUEUE_ADD, null, "$UTTERANCE_ID-$queued") == TextToSpeech.SUCCESS) queued++
+            }
+            withTimeoutOrNull(30_000) { repeat(queued) { finished.receive() } }
+        } finally {
+            tts.stop()
+            audio.abandonAudioFocusRequest(focus)
+            tts.shutdown()
+        }
+    }
 
     private suspend fun speakNow(text: String, attributes: AudioAttributes): Boolean {
         val tts = openEngine(attributes) ?: return false

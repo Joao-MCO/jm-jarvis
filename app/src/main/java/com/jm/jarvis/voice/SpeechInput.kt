@@ -18,13 +18,19 @@ sealed interface Hearing {
     data class Failed(val code: Int) : Hearing
 }
 
-/** Reconhecimento de fala do Android em português, de preferência o que roda no próprio aparelho. */
+/**
+ * Reconhecimento de fala em português. Por padrão usa o serviço do Google pela internet, bem mais
+ * preciso; sem internet, o controlador tenta o reconhecedor que roda no próprio aparelho.
+ */
 class SpeechInput(private val context: Context) {
 
     fun onDeviceAvailable(): Boolean = SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
 
-    /** Escuta uma frase e termina com [Hearing.Final] ou [Hearing.Failed]. Colete na thread principal. */
-    fun listen(onDevice: Boolean): Flow<Hearing> = callbackFlow {
+    /**
+     * Escuta uma frase e termina com [Hearing.Final] ou [Hearing.Failed]. Colete na thread principal.
+     * @param hints palavras que o usuário costuma dizer (nomes das rotinas), para o reconhecedor preferir.
+     */
+    fun listen(onDevice: Boolean, hints: List<String>): Flow<Hearing> = callbackFlow {
         val recognizer = if (onDevice) {
             SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
         } else {
@@ -63,21 +69,34 @@ class SpeechInput(private val context: Context) {
                 .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 .putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR")
                 .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                .putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true),
+                .putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, onDevice)
+                .putStringArrayListExtra(RecognizerIntent.EXTRA_BIASING_STRINGS, ArrayList(hints)),
         )
         awaitClose { recognizer.destroy() }
     }
 
     companion object {
-        /** O reconhecedor do aparelho existe, mas sem o pacote de português: vale tentar o outro. */
-        fun languageMissing(code: Int): Boolean =
-            code == SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED || code == SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE
+        /** Palavras comuns nos pedidos ao JARVIS, somadas aos nomes das rotinas como dica para o reconhecedor. */
+        val COMMON_HINTS = listOf(
+            "JARVIS", "despertador", "timer", "cronômetro", "lembrete", "me lembra", "lanterna",
+            "volume", "previsão do tempo", "agenda", "academia", "suplementos", "mililitros",
+        )
+
+        /** Sem internet (ou servidor fora): vale tentar o reconhecedor do aparelho. */
+        fun networkProblem(code: Int): Boolean = code in setOf(
+            SpeechRecognizer.ERROR_NETWORK,
+            SpeechRecognizer.ERROR_NETWORK_TIMEOUT,
+            SpeechRecognizer.ERROR_SERVER,
+            SpeechRecognizer.ERROR_SERVER_DISCONNECTED,
+        )
 
         fun describe(code: Int): String = when (code) {
             SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Não ouvi nada. Toque no microfone e fale."
             SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Preciso da permissão do microfone."
             SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT, SpeechRecognizer.ERROR_SERVER ->
-                "O reconhecimento de fala precisa de internet neste celular. Você pode digitar abaixo."
+                "Sem internet para reconhecer a fala. Você pode digitar abaixo."
+            SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED, SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE ->
+                "O reconhecimento offline em português não está instalado. Conecte-se à internet ou digite abaixo."
             SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "O microfone está ocupado. Tente de novo."
             else -> "Não consegui ouvir (erro $code). Tente de novo ou digite abaixo."
         }
