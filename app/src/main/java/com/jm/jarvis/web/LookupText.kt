@@ -1,6 +1,6 @@
 package com.jm.jarvis.web
 
-import com.jm.jarvis.domain.Progress
+import java.time.DayOfWeek
 import java.time.LocalDate
 import kotlin.math.roundToInt
 
@@ -37,8 +37,12 @@ object LookupText {
     fun weather(now: WeatherNow, days: List<DayForecast>, city: String?, today: LocalDate): String = buildString {
         append(if (city.isNullOrBlank()) "Agora: " else "Agora em $city: ")
         append("${now.temperature.roundToInt()}°, ${label(now.code)}, sensação de ${now.feelsLike.roundToInt()}°.")
-        days.take(2).forEach { day ->
-            val name = if (day.date == today) "Hoje" else if (day.date == today.plusDays(1)) "Amanhã" else Progress.DAY_LABELS.getValue(day.date.dayOfWeek)
+        days.forEach { day ->
+            val name = when (day.date) {
+                today -> "Hoje"
+                today.plusDays(1) -> "Amanhã"
+                else -> FULL_DAY_NAMES.getValue(day.date.dayOfWeek).replaceFirstChar(Char::uppercase)
+            }
             append(" $name: ${label(day.code)}, mínima de ${day.min.roundToInt()}° e máxima de ${day.max.roundToInt()}°")
             day.rainChance?.let { append(", $it% de chance de chuva") }
             append('.')
@@ -67,6 +71,12 @@ object LookupText {
         96, 99 -> "trovoadas com granizo"
         else -> "tempo indefinido"
     }
+
+    private val FULL_DAY_NAMES = mapOf(
+        DayOfWeek.MONDAY to "segunda", DayOfWeek.TUESDAY to "terça", DayOfWeek.WEDNESDAY to "quarta",
+        DayOfWeek.THURSDAY to "quinta", DayOfWeek.FRIDAY to "sexta", DayOfWeek.SATURDAY to "sábado",
+        DayOfWeek.SUNDAY to "domingo",
+    )
 
     private fun String.oneLine(): String = replace(Regex("\\s+"), " ").trim()
 }

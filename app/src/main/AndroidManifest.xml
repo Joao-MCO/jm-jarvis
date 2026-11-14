@@ -12,6 +12,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Só a cidade aproximada, para o clima -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Criar despertadores e timers no app Relógio -->
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
 
     <!-- Necessário para encontrar o mecanismo de voz e o reconhecedor de fala do Android -->
     <queries>
@@ -20,6 +22,15 @@
         </intent>
         <intent>
             <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SET_ALARM" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SET_TIMER" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SHOW_ALARMS" />
         </intent>
     </queries>
 

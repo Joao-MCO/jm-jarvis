@@ -7,6 +7,7 @@ import com.jm.jarvis.AppContainer
 import com.jm.jarvis.container
 import com.jm.jarvis.domain.AlertPolicy
 import com.jm.jarvis.domain.Progress
+import com.jm.jarvis.domain.StopwatchAction
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalTime
@@ -50,6 +51,16 @@ class ReminderReceiver : BroadcastReceiver() {
 /** Botões Feito / Adiar / Pular da notificação. */
 class NotificationActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        val stopwatchAction = when (intent.action) {
+            ACTION_STOPWATCH_PAUSE -> StopwatchAction.PAUSE
+            ACTION_STOPWATCH_RESUME -> StopwatchAction.RESUME
+            ACTION_STOPWATCH_RESET -> StopwatchAction.RESET
+            else -> null
+        }
+        if (stopwatchAction != null) {
+            runAsync(context) { stopwatch.apply(stopwatchAction) }
+            return
+        }
         val habitId = intent.data?.lastPathSegment?.toLongOrNull() ?: return
         runAsync(context) {
             when (intent.action) {
@@ -66,6 +77,9 @@ class NotificationActionReceiver : BroadcastReceiver() {
         const val ACTION_SNOOZE = "com.jm.jarvis.action.SNOOZE"
         const val ACTION_SKIP = "com.jm.jarvis.action.SKIP"
         const val SNOOZE_MINUTES = 15L
+        const val ACTION_STOPWATCH_PAUSE = "com.jm.jarvis.action.STOPWATCH_PAUSE"
+        const val ACTION_STOPWATCH_RESUME = "com.jm.jarvis.action.STOPWATCH_RESUME"
+        const val ACTION_STOPWATCH_RESET = "com.jm.jarvis.action.STOPWATCH_RESET"
     }
 }
 

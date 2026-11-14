@@ -61,7 +61,8 @@ class WebLookup(private val context: Context, private val settings: SettingsStor
         Lookup(LookupText.wikipedia(title, summary.optString("extract")), listOf(Source("Wikipedia: $title", url)))
     }
 
-    suspend fun weather(): Lookup {
+    /** Clima agora e a previsão de [days] dias contando hoje (de 1 a 7). */
+    suspend fun weather(days: Int = 2): Lookup {
         val location = location()
             ?: return Lookup("Não consegui a localização do celular. Peça ao usuário para permitir a localização em Ajustes e deixá-la ligada.")
         return attempt("consultar o clima") {
@@ -70,7 +71,7 @@ class WebLookup(private val context: Context, private val settings: SettingsStor
                 "https://api.open-meteo.com/v1/forecast?latitude=%.3f&longitude=%.3f" +
                     "&current=temperature_2m,apparent_temperature,weather_code" +
                     "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max" +
-                    "&timezone=auto&forecast_days=2",
+                    "&timezone=auto&forecast_days=${days.coerceIn(1, 7)}",
                 location.latitude,
                 location.longitude,
             )
@@ -79,7 +80,7 @@ class WebLookup(private val context: Context, private val settings: SettingsStor
             val now = WeatherNow(current.getDouble("temperature_2m"), current.getDouble("apparent_temperature"), current.getInt("weather_code"))
             val daily = json.getJSONObject("daily")
             val dates = daily.getJSONArray("time")
-            val days = (0 until dates.length()).map { i ->
+            val forecast = (0 until dates.length()).map { i ->
                 DayForecast(
                     date = LocalDate.parse(dates.getString(i)),
                     code = daily.getJSONArray("weather_code").getInt(i),
@@ -88,7 +89,7 @@ class WebLookup(private val context: Context, private val settings: SettingsStor
                     rainChance = daily.optJSONArray("precipitation_probability_max")?.optInt(i, -1)?.takeIf { it >= 0 },
                 )
             }
-            Lookup(LookupText.weather(now, days, city(location), LocalDate.now()), listOf(Source("Open-Meteo", "https://open-meteo.com")))
+            Lookup(LookupText.weather(now, forecast, city(location), LocalDate.now()), listOf(Source("Open-Meteo", "https://open-meteo.com")))
         }
     }
 

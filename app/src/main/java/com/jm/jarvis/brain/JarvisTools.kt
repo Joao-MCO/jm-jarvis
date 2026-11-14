@@ -13,7 +13,12 @@ import com.jm.jarvis.domain.HabitMatcher
 import com.jm.jarvis.domain.HabitService
 import com.jm.jarvis.domain.Progress
 import com.jm.jarvis.domain.RoutineDraft
+import com.jm.jarvis.domain.SpokenTime
+import com.jm.jarvis.domain.Stopwatch
+import com.jm.jarvis.domain.StopwatchAction
+import com.jm.jarvis.domain.StopwatchService
 import com.jm.jarvis.domain.parseClock
+import com.jm.jarvis.phone.PhoneActions
 import com.jm.jarvis.web.Lookup
 import com.jm.jarvis.web.Source
 import com.jm.jarvis.web.WebLookup
@@ -33,7 +38,55 @@ class JarvisTools(
     private val habits: HabitService,
     private val calendar: CalendarAnnouncer,
     private val web: WebLookup,
+    private val phone: PhoneActions,
+    private val stopwatch: StopwatchService,
 ) : ToolSet {
+
+    @Tool(description = "Relógio do celular: criar despertador, iniciar timer ou mostrar os despertadores.")
+    fun relogio(
+        @ToolParam(description = "despertador, timer ou ver_despertadores") acao: String,
+        @ToolParam(description = "Horário do despertador, ex.: 06:30") horario: String? = null,
+        @ToolParam(description = "Minutos do timer") minutos: Int? = null,
+        @ToolParam(description = "Segundos do timer") segundos: Int? = null,
+        @ToolParam(description = "Dias em que o despertador repete, ex.: [\"seg\", \"qua\"] ou [\"dias úteis\"]") dias: List<String>? = null,
+        @ToolParam(description = "Nome do despertador ou do timer, se o usuário disser") rotulo: String? = null,
+    ): String {
+        val action = SpokenTime.normalize(acao)
+        return when {
+            "desperta" in action || "alarme" in action -> {
+                val time = horario?.let(::parseClock) ?: return "Não entendi o horário do despertador. Use HH:mm."
+                val days = SpokenTime.days(dias.orEmpty())
+                if (!phone.setAlarm(time, days, rotulo)) return "Não achei um app de relógio que aceite despertadores."
+                val repeat = if (days.isEmpty()) "" else ", ${Progress.days(days)}"
+                "Despertador criado para ${Progress.hhmm(time)}$repeat no app Relógio."
+            }
+            "timer" in action || "tempor" in action -> {
+                val total = (minutos ?: 0) * 60 + (segundos ?: 0)
+                if (total !in 1..86_400) return "Diga a duração do timer, de 1 segundo a 24 horas."
+                if (!phone.setTimer(total, rotulo)) return "Não achei um app de relógio que aceite timers."
+                "Timer de ${Stopwatch.spoken(total * 1000L)} iniciado."
+            }
+            "ver" in action || "mostr" in action || "list" in action ->
+                if (phone.showAlarms()) "Abri seus despertadores no app Relógio." else "Não achei um app de relógio."
+            else -> "Ação do relógio desconhecida: use despertador, timer ou ver_despertadores."
+        }
+    }
+
+    @Tool(description = "Cronômetro: iniciar, pausar, continuar, zerar ou consultar o tempo.")
+    fun cronometro(
+        @ToolParam(description = "iniciar, pausar, continuar, zerar ou consultar") acao: String,
+    ): String = runBlocking {
+        val action = SpokenTime.normalize(acao)
+        // "reiniciar" contém "iniciar": zerar é testado antes.
+        val chosen = when {
+            "zer" in action || "reinic" in action -> StopwatchAction.RESET
+            "inici" in action || "comec" in action || "dispar" in action -> StopwatchAction.START
+            "paus" in action || "par" in action -> StopwatchAction.PAUSE
+            "contin" in action || "retom" in action -> StopwatchAction.RESUME
+            else -> StopwatchAction.STATUS
+        }
+        stopwatch.apply(chosen)
+    }
     /** Fontes consultadas na resposta em andamento; o [Brain] limpa antes e lê depois de cada pergunta. */
     val sources = mutableListOf<Source>()
 
@@ -47,8 +100,10 @@ class JarvisTools(
         @ToolParam(description = "O termo, ex.: Santos Dumont") termo: String,
     ): String = runBlocking { use(web.wikipedia(termo)) }
 
-    @Tool(description = "Clima agora e a previsão de hoje e de amanhã onde o usuário está.")
-    fun clima(): String = runBlocking { use(web.weather()) }
+    @Tool(description = "Clima agora e a previsão do tempo dos próximos dias onde o usuário está.")
+    fun clima(
+        @ToolParam(description = "Quantos dias de previsão contando hoje, de 1 a 7. Padrão: 2") dias: Int = 2,
+    ): String = runBlocking { use(web.weather(dias.coerceIn(1, 7))) }
 
     private fun use(lookup: Lookup): String {
         sources += lookup.sources

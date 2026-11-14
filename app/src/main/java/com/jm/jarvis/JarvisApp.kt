@@ -3,6 +3,9 @@ package com.jm.jarvis
 import android.app.Application
 import android.content.Context
 import com.jm.jarvis.brain.Brain
+import com.jm.jarvis.brain.JarvisTools
+import com.jm.jarvis.domain.StopwatchService
+import com.jm.jarvis.phone.PhoneActions
 import com.jm.jarvis.calendar.CalendarAnnouncer
 import com.jm.jarvis.data.AppDatabase
 import com.jm.jarvis.data.SettingsStore
@@ -39,7 +42,9 @@ class AppContainer(context: Context) {
     val calendar = CalendarAnnouncer(context, settings, scheduler, speaker)
     val speechInput = SpeechInput(context)
     val web = WebLookup(context, settings)
-    val brain = Brain(context, habits, calendar, web)
+    val phone = PhoneActions(context)
+    val stopwatch = StopwatchService(settings, notifications)
+    val brain = Brain(context, habits) { JarvisTools(habits, calendar, web, phone, stopwatch) }
 }
 
 val Context.container: AppContainer get() = (applicationContext as JarvisApp).container

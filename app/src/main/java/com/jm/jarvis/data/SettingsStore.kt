@@ -5,6 +5,8 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
+import com.jm.jarvis.domain.Stopwatch
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -52,6 +54,18 @@ class SettingsStore(context: Context) {
         }
     }
 
+    suspend fun stopwatch(): Stopwatch {
+        val prefs = store.data.first()
+        return Stopwatch(runningSince = prefs[STOPWATCH_SINCE], accumulatedMs = prefs[STOPWATCH_ACCUMULATED] ?: 0)
+    }
+
+    suspend fun saveStopwatch(stopwatch: Stopwatch) {
+        store.edit { prefs ->
+            stopwatch.runningSince?.let { prefs[STOPWATCH_SINCE] = it } ?: prefs.remove(STOPWATCH_SINCE)
+            prefs[STOPWATCH_ACCUMULATED] = stopwatch.accumulatedMs
+        }
+    }
+
     suspend fun isSeeded(): Boolean = store.data.first()[SEEDED] == true
 
     suspend fun markSeeded() {
@@ -78,5 +92,7 @@ class SettingsStore(context: Context) {
         val CALENDAR_SPEECH = booleanPreferencesKey("calendar_speech")
         val SEEDED = booleanPreferencesKey("seeded")
         val TAVILY_KEY = stringPreferencesKey("tavily_key")
+        val STOPWATCH_SINCE = longPreferencesKey("stopwatch_since")
+        val STOPWATCH_ACCUMULATED = longPreferencesKey("stopwatch_accumulated")
     }
 }

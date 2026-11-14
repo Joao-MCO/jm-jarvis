@@ -10,11 +10,9 @@ import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.tool
-import com.jm.jarvis.calendar.CalendarAnnouncer
 import com.jm.jarvis.domain.HabitService
 import com.jm.jarvis.domain.PT_BR
 import com.jm.jarvis.web.Source
-import com.jm.jarvis.web.WebLookup
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -40,8 +38,8 @@ sealed interface ReplyEvent {
 class Brain(
     private val context: Context,
     private val habits: HabitService,
-    private val calendar: CalendarAnnouncer,
-    private val web: WebLookup,
+    /** Ferramentas novas para cada conversa (guardam as fontes consultadas nela). */
+    private val newTools: () -> JarvisTools,
 ) {
     /** A resposta falada e de onde vieram as informações, se a IA consultou a internet. */
     data class Reply(val text: String, val sources: List<Source> = emptyList())
@@ -124,7 +122,7 @@ class Brain(
             engine = it
         }
         val routines = habits.habits().filter { it.active }.joinToString(", ") { it.name }
-        val toolSet = JarvisTools(habits, calendar, web).also { tools = it }
+        val toolSet = newTools().also { tools = it }
         return loaded.createConversation(
             ConversationConfig(
                 systemInstruction = Contents.of(persona(routines, now)),
