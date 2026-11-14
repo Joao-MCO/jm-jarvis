@@ -50,12 +50,12 @@ class JarvisTools(
     private val control: PhoneControl,
 ) : ToolSet {
 
-    @Tool(description = "Controla o celular: lanterna, volume, abrir app, ligar para contato, WhatsApp, rota no mapa ou tocar música.")
+    @Tool(description = "Controla o celular: lanterna, volume, abrir app, ligar, WhatsApp, rota ou música.")
     fun celular(
-        @ToolParam(description = "lanterna, volume, abrir, ligar, whatsapp, rota ou musica") acao: String,
-        @ToolParam(description = "Contato, app, destino ou música, ex.: Maria, Spotify, aeroporto, Legião Urbana") alvo: String? = null,
-        @ToolParam(description = "ligar/desligar para lanterna; 0 a 100, mais ou menos para volume; a mensagem para WhatsApp") valor: String? = null,
-    ): String {
+        @ToolParam(description = "lanterna, volume, abrir, ligar, whatsapp, rota, musica") acao: String,
+        @ToolParam(description = "Contato, app, destino ou música") alvo: String? = null,
+        @ToolParam(description = "ligar/desligar; 0 a 100, mais ou menos; mensagem do WhatsApp") valor: String? = null,
+    ): String { executed++
         val action = SpokenTime.normalize(acao)
         val target = alvo?.trim().orEmpty()
         return when {
@@ -71,12 +71,12 @@ class JarvisTools(
         }
     }
 
-    @Tool(description = "Lembretes avulsos: criar, listar ou cancelar. Ex.: me lembra de ligar para o dentista amanhã às 15h.")
+    @Tool(description = "Lembrete avulso com hora: criar, listar ou cancelar.")
     fun lembrete(
         @ToolParam(description = "criar, listar ou cancelar") acao: String,
-        @ToolParam(description = "O que lembrar, ou qual lembrete cancelar") texto: String? = null,
-        @ToolParam(description = "Quando, exatamente como o usuário disse, ex.: amanhã às 15h, daqui a 20 minutos") quando: String? = null,
-    ): String = runBlocking {
+        @ToolParam(description = "O que lembrar") texto: String? = null,
+        @ToolParam(description = "Quando, como o usuário disse") quando: String? = null,
+    ): String = runBlocking { executed++;
         val action = SpokenTime.normalize(acao)
         when {
             "cancel" in action || "apag" in action || "remov" in action ->
@@ -90,11 +90,11 @@ class JarvisTools(
         }
     }
 
-    @Tool(description = "Memória sobre o usuário: guardar um fato ou preferência, esquecer um fato ou listar o que você sabe.")
+    @Tool(description = "Guarda, esquece ou lista fatos sobre o usuário.")
     fun memoria(
         @ToolParam(description = "guardar, esquecer ou listar") acao: String,
-        @ToolParam(description = "O fato, em uma frase, ex.: Sou alérgico a camarão") fato: String? = null,
-    ): String = runBlocking {
+        @ToolParam(description = "O fato, em uma frase") fato: String? = null,
+    ): String = runBlocking { executed++;
         val action = SpokenTime.normalize(acao)
         when {
             "esquec" in action || "apag" in action -> fato?.let { memory.forget(it) } ?: "Diga o que devo esquecer."
@@ -103,15 +103,15 @@ class JarvisTools(
         }
     }
 
-    @Tool(description = "Relógio do celular: criar despertador, iniciar timer ou mostrar os despertadores.")
+    @Tool(description = "Despertador ou timer do relógio.")
     fun relogio(
         @ToolParam(description = "despertador, timer ou ver_despertadores") acao: String,
-        @ToolParam(description = "Horário do despertador, ex.: 06:30") horario: String? = null,
+        @ToolParam(description = "HH:mm") horario: String? = null,
         @ToolParam(description = "Minutos do timer") minutos: Int? = null,
         @ToolParam(description = "Segundos do timer") segundos: Int? = null,
-        @ToolParam(description = "Dias em que o despertador repete, ex.: [\"seg\", \"qua\"] ou [\"dias úteis\"]") dias: List<String>? = null,
-        @ToolParam(description = "Nome do despertador ou do timer, se o usuário disser") rotulo: String? = null,
-    ): String {
+        @ToolParam(description = "Dias de repetição") dias: List<String>? = null,
+        @ToolParam(description = "Nome, se o usuário disser") rotulo: String? = null,
+    ): String { executed++
         val action = SpokenTime.normalize(acao)
         return when {
             "desperta" in action || "alarme" in action -> {
@@ -133,10 +133,10 @@ class JarvisTools(
         }
     }
 
-    @Tool(description = "Cronômetro: iniciar, pausar, continuar, zerar ou consultar o tempo.")
+    @Tool(description = "Cronômetro: iniciar, pausar, continuar, zerar ou consultar.")
     fun cronometro(
         @ToolParam(description = "iniciar, pausar, continuar, zerar ou consultar") acao: String,
-    ): String = runBlocking {
+    ): String = runBlocking { executed++;
         val action = SpokenTime.normalize(acao)
         // "reiniciar" contém "iniciar": zerar é testado antes.
         val chosen = when {
@@ -148,36 +148,41 @@ class JarvisTools(
         }
         stopwatch.apply(chosen)
     }
+    /** Quantas ferramentas a IA executou na resposta em andamento; o [Brain] usa para pegar "Registrado" sem ação. */
+    @Volatile var executed = 0
+
     /** Fontes consultadas na resposta em andamento; o [Brain] limpa antes e lê depois de cada pergunta. */
     val sources = mutableListOf<Source>()
 
-    @Tool(description = "Pesquisa na internet: notícias, preços, placares, horários de jogos e qualquer informação recente ou que você não sabe.")
+    @Tool(description = "Pesquisa na internet: notícias, preços, placares e informação recente.")
     fun pesquisarInternet(
         @ToolParam(description = "O que pesquisar, em poucas palavras") consulta: String,
-    ): String = runBlocking { use(web.search(consulta)) }
+    ): String = runBlocking { executed++; use(web.search(consulta)) }
 
-    @Tool(description = "Consulta a Wikipedia sobre pessoas, lugares, conceitos e fatos históricos.")
+    @Tool(description = "Wikipedia: pessoas, lugares, conceitos e história.")
     fun consultarWikipedia(
-        @ToolParam(description = "O termo, ex.: Santos Dumont") termo: String,
-    ): String = runBlocking { use(web.wikipedia(termo)) }
+        @ToolParam(description = "O termo") termo: String,
+    ): String = runBlocking { executed++; use(web.wikipedia(termo)) }
 
-    @Tool(description = "Clima agora e a previsão do tempo dos próximos dias onde o usuário está.")
+    @Tool(description = "Clima e previsão dos próximos dias.")
     fun clima(
-        @ToolParam(description = "Quantos dias de previsão contando hoje, de 1 a 7. Padrão: 2") dias: Int = 2,
-    ): String = runBlocking { use(web.weather(dias.coerceIn(1, 7))) }
+        @ToolParam(description = "Dias de previsão, 1 a 7") dias: Int = 2,
+    ): String = runBlocking { executed++; use(web.weather(dias.coerceIn(1, 7))) }
 
     private fun use(lookup: Lookup): String {
         sources += lookup.sources
         return lookup.text
     }
 
-    @Tool(description = "Registra que o usuário acabou de fazer uma rotina: beber água, escovar os dentes, tomar suplementos, rezar, ir à academia, estudar, ler etc.")
+    @Tool(description = "Registra que o usuário fez uma rotina (água, dentes, academia etc.).")
     fun registrarHabito(
-        @ToolParam(description = "Nome da rotina, ex.: água, escovar os dentes, academia") habito: String,
-        @ToolParam(description = "Quantidade, se o usuário disser, ex.: 500 para 500 ml ou 20 para 20 minutos") quantidade: Double? = null,
-    ): String = runBlocking {
+        @ToolParam(description = "Nome da rotina") habito: String,
+        @ToolParam(description = "Quantidade, se disser") quantidade: Double? = null,
+    ): String = runBlocking { executed++;
         val habit = find(habito) ?: return@runBlocking notFound(habito)
         val target = habit.dailyTarget
+        // "1 litro" chega como 1: numa rotina em ml, até 10 só pode ser litros.
+        val quantidade = if (habit.unit.equals("ml", ignoreCase = true) && quantidade != null && quantidade > 0 && quantidade <= 10) quantidade * 1000 else quantidade
         val amount = when {
             target == null -> null
             quantidade == null -> Progress.quickAmount(habit)
@@ -191,16 +196,16 @@ class JarvisTools(
         "Registrado: ${habit.name}$added. Hoje: $status."
     }
 
-    @Tool(description = "Lista as rotinas de hoje e quais ainda faltam.")
-    fun listarHabitos(): String = runBlocking { todayLines() }
+    @Tool(description = "Rotinas de hoje e o que falta.")
+    fun listarHabitos(): String = runBlocking { executed++; todayLines() }
 
-    @Tool(description = "Cria uma rotina nova. Informe só um tipo de frequência: intervalo, horários ou vezes por semana.")
+    @Tool(description = "Cria uma rotina nova, com só um tipo de frequência.")
     fun criarHabito(
-        @ToolParam(description = "Nome da rotina, ex.: tomar remédio") nome: String,
-        @ToolParam(description = "Repetir a cada N minutos, ex.: 45") intervaloMinutos: Int? = null,
-        @ToolParam(description = "Horários no formato HH:mm, ex.: [\"08:00\", \"20:00\"]") horarios: List<String>? = null,
-        @ToolParam(description = "Quantas vezes por semana, ex.: 5") vezesPorSemana: Int? = null,
-    ): String = runBlocking {
+        @ToolParam(description = "Nome da rotina") nome: String,
+        @ToolParam(description = "A cada N minutos") intervaloMinutos: Int? = null,
+        @ToolParam(description = "Horários HH:mm") horarios: List<String>? = null,
+        @ToolParam(description = "Vezes por semana") vezesPorSemana: Int? = null,
+    ): String = runBlocking { executed++;
         if (habits.habits().any { HabitMatcher.sameName(it.name, nome) }) return@runBlocking "Já existe uma rotina chamada $nome."
         val times = horarios?.map { parseClock(it) ?: return@runBlocking "Não entendi o horário \"$it\". Use HH:mm." }
         val draft = RoutineDraft(
@@ -222,28 +227,28 @@ class JarvisTools(
         }
     }
 
-    @Tool(description = "Adia o próximo aviso de uma rotina, ex.: adia a água por 20 minutos.")
+    @Tool(description = "Adia o aviso de uma rotina.")
     fun adiarLembrete(
-        @ToolParam(description = "Nome da rotina, ex.: água") habito: String,
-        @ToolParam(description = "Quantos minutos adiar") minutos: Int,
-    ): String = runBlocking {
+        @ToolParam(description = "Nome da rotina") habito: String,
+        @ToolParam(description = "Minutos") minutos: Int,
+    ): String = runBlocking { executed++;
         val habit = find(habito) ?: return@runBlocking notFound(habito)
         if (minutos !in 1..240) return@runBlocking "Só consigo adiar de 1 a 240 minutos."
         habits.snooze(habit.id, minutos.toLong())
         "Lembrete de ${habit.name} adiado para ${Progress.hhmm(LocalTime.now().plusMinutes(minutos.toLong()))}."
     }
 
-    @Tool(description = "Resume o dia do usuário: clima, agenda, rotinas pendentes, lembretes e o próximo aviso.")
-    fun resumoDoDia(): String = runBlocking {
+    @Tool(description = "Resumo do dia: clima, agenda, rotinas e lembretes.")
+    fun resumoDoDia(): String = runBlocking { executed++;
         val today = habits.todayState()
         val next = today.next?.let { "Próximo aviso: ${it.habit.name}, ${Progress.upcoming(it.at, today.date)}." }.orEmpty()
         "${briefing.text()} $next".trim()
     }
 
-    @Tool(description = "Lista os eventos da agenda do usuário a partir de agora.")
+    @Tool(description = "Eventos da agenda.")
     fun eventosDaAgenda(
-        @ToolParam(description = "Quantos dias olhar, de 1 (só hoje) a 7. Padrão: 1") dias: Int = 1,
-    ): String = runBlocking { agenda(dias) }
+        @ToolParam(description = "Dias, 1 a 7") dias: Int = 1,
+    ): String = runBlocking { executed++; agenda(dias) }
 
     private suspend fun find(name: String): Habit? = HabitMatcher.find(name, habits.habits())
 

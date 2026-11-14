@@ -138,6 +138,14 @@ class Speaker(private val context: Context) {
             Log.i(TAG, "mecanismo ${tts?.defaultEngine}: status $status, idioma pt-BR $language")
             if (tts != null && language != null && language >= TextToSpeech.LANG_AVAILABLE) {
                 tts.setAudioAttributes(attributes)
+                val voices = tts.voices.orEmpty().filter { it.locale.toLanguageTag() == "pt-BR" && "notInstalled" !in it.features }
+                Log.i(TAG, "vozes pt-BR: ${voices.joinToString { it.name }}")
+                // O Android não informa o gênero; no Google TTS os códigos "ptd" e "pte" são vozes masculinas.
+                val male = MALE_CODES.firstNotNullOfOrNull { code ->
+                    voices.firstOrNull { "-x-$code-" in it.name && !it.isNetworkConnectionRequired }
+                        ?: voices.firstOrNull { "-x-$code-" in it.name }
+                }
+                male?.let { tts.voice = it }
                 if (cont.isActive) cont.resume(tts) else tts.shutdown()
             } else {
                 tts?.shutdown()
@@ -151,5 +159,6 @@ class Speaker(private val context: Context) {
         const val TAG = "JarvisVoz"
         val PT_BR: Locale = Locale.forLanguageTag("pt-BR")
         const val UTTERANCE_ID = "jarvis"
+        val MALE_CODES = listOf("ptd", "pte")
     }
 }

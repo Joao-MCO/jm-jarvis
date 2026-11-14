@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -78,6 +79,9 @@ fun SettingsScreen(app: AppContainer) {
     val uriHandler = LocalUriHandler.current
     val current = settings ?: return
     var keyDraft by remember(current.tavilyKey) { mutableStateOf(current.tavilyKey) }
+    var cloudKeyDraft by remember(current.cloudKey) { mutableStateOf(current.cloudKey) }
+    var cloudModelDraft by remember(current.cloudModel) { mutableStateOf(current.cloudModel) }
+    var cloudUrlDraft by remember(current.cloudUrl) { mutableStateOf(current.cloudUrl) }
     LaunchedEffect(resumes, current.calendarSpeech) { nextCalendar = app.calendar.describeNext() }
 
     fun update(transform: (Settings) -> Settings) {
@@ -177,6 +181,43 @@ fun SettingsScreen(app: AppContainer) {
                 Text(fact.text, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                 TextButton(onClick = { scope.launch { app.memory.forget(fact.id) } }) { Text("Apagar") }
             }
+        }
+
+        HorizontalDivider()
+        Text("IA online", style = MaterialTheme.typography.titleMedium)
+        SwitchRow(
+            "Usar IA online quando houver internet",
+            "Responde em 1 a 2 segundos e erra bem menos. Sem internet, ou se falhar, usa o modelo do celular. A frase, suas rotinas e os fatos guardados vão para o provedor.",
+            current.cloudEnabled,
+        ) { on -> update { it.copy(cloudEnabled = on) } }
+        OutlinedTextField(
+            value = cloudKeyDraft,
+            onValueChange = { cloudKeyDraft = it.trim() },
+            label = { Text("Chave da API (Gemini, Groq...)") },
+            singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedTextField(
+            value = cloudModelDraft,
+            onValueChange = { cloudModelDraft = it.trim() },
+            label = { Text("Modelo") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedTextField(
+            value = cloudUrlDraft,
+            onValueChange = { cloudUrlDraft = it.trim() },
+            label = { Text("Endereço (formato OpenAI)") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(
+                onClick = { update { it.copy(cloudKey = cloudKeyDraft, cloudModel = cloudModelDraft, cloudUrl = cloudUrlDraft) } },
+                enabled = cloudKeyDraft != current.cloudKey || cloudModelDraft != current.cloudModel || cloudUrlDraft != current.cloudUrl,
+            ) { Text("Salvar") }
+            TextButton(onClick = { uriHandler.openUri("https://aistudio.google.com/apikey") }) { Text("Criar chave grátis no Google AI Studio") }
         }
 
         HorizontalDivider()

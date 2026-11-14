@@ -24,6 +24,11 @@ data class Settings(
     val calendarSpeech: Boolean = true,
     /** Chave pessoal da Tavily para pesquisar na internet; fica só no armazenamento privado do app. */
     val tavilyKey: String = "",
+    /** IA online (API compatível com OpenAI, como a do Gemini): usada quando há internet; sem ela, o Gemma local. */
+    val cloudEnabled: Boolean = true,
+    val cloudKey: String = "",
+    val cloudUrl: String = DEFAULT_CLOUD_URL,
+    val cloudModel: String = DEFAULT_CLOUD_MODEL,
     /** Briefing falado: clima, agenda, rotinas e lembretes do dia. */
     val briefingEnabled: Boolean = true,
     val briefingTime: LocalTime = LocalTime.of(7, 30),
@@ -54,6 +59,10 @@ class SettingsStore(context: Context) {
             prefs[QUIET_END] = next.quietEnd.toSecondOfDay() / 60
             prefs[CALENDAR_SPEECH] = next.calendarSpeech
             prefs[TAVILY_KEY] = next.tavilyKey
+            prefs[CLOUD_ENABLED] = next.cloudEnabled
+            prefs[CLOUD_KEY] = next.cloudKey
+            prefs[CLOUD_URL] = next.cloudUrl
+            prefs[CLOUD_MODEL] = next.cloudModel
             prefs[BRIEFING_ENABLED] = next.briefingEnabled
             prefs[BRIEFING_TIME] = next.briefingTime.toSecondOfDay() / 60
         }
@@ -86,6 +95,10 @@ class SettingsStore(context: Context) {
             quietEnd = this[QUIET_END]?.let { LocalTime.of(it / 60, it % 60) } ?: defaults.quietEnd,
             calendarSpeech = this[CALENDAR_SPEECH] ?: defaults.calendarSpeech,
             tavilyKey = this[TAVILY_KEY] ?: defaults.tavilyKey,
+            cloudEnabled = this[CLOUD_ENABLED] ?: defaults.cloudEnabled,
+            cloudKey = this[CLOUD_KEY] ?: defaults.cloudKey,
+            cloudUrl = this[CLOUD_URL] ?: defaults.cloudUrl,
+            cloudModel = this[CLOUD_MODEL] ?: defaults.cloudModel,
             briefingEnabled = this[BRIEFING_ENABLED] ?: defaults.briefingEnabled,
             briefingTime = this[BRIEFING_TIME]?.let { LocalTime.of(it / 60, it % 60) } ?: defaults.briefingTime,
         )
@@ -99,9 +112,16 @@ class SettingsStore(context: Context) {
         val CALENDAR_SPEECH = booleanPreferencesKey("calendar_speech")
         val SEEDED = booleanPreferencesKey("seeded")
         val TAVILY_KEY = stringPreferencesKey("tavily_key")
+        val CLOUD_ENABLED = booleanPreferencesKey("cloud_enabled")
+        val CLOUD_KEY = stringPreferencesKey("cloud_key")
+        val CLOUD_URL = stringPreferencesKey("cloud_url")
+        val CLOUD_MODEL = stringPreferencesKey("cloud_model")
         val BRIEFING_ENABLED = booleanPreferencesKey("briefing_enabled")
         val BRIEFING_TIME = intPreferencesKey("briefing_time_minutes")
         val STOPWATCH_SINCE = longPreferencesKey("stopwatch_since")
         val STOPWATCH_ACCUMULATED = longPreferencesKey("stopwatch_accumulated")
     }
 }
+
+const val DEFAULT_CLOUD_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+const val DEFAULT_CLOUD_MODEL = "gemini-3.6-flash"

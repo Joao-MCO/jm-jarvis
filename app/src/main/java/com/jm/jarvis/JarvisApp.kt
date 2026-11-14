@@ -6,6 +6,7 @@ import android.util.Log
 import com.jm.jarvis.widget.JarvisWidget
 import kotlinx.coroutines.withTimeoutOrNull
 import com.jm.jarvis.brain.Brain
+import com.jm.jarvis.brain.CloudBrain
 import com.jm.jarvis.brain.JarvisTools
 import com.jm.jarvis.domain.BriefingService
 import com.jm.jarvis.domain.MemoryService
@@ -59,7 +60,7 @@ class AppContainer(context: Context) {
     /** As ferramentas da IA; uma instância por conversa, porque guardam as fontes consultadas. */
     fun newTools() = JarvisTools(habits, calendar, web, phone, stopwatch, reminders, memory, briefing, control)
 
-    val brain = Brain(context, habits, memory, ::newTools)
+    val brain = Brain(context, habits, memory, settings, CloudBrain(settings), ::newTools)
 
     /**
      * Arma de novo todos os alarmes (ao abrir o app, ao reiniciar o celular, ao mudar a hora).

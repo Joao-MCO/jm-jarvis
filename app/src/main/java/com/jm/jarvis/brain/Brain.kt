@@ -1,6 +1,8 @@
 package com.jm.jarvis.brain
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.util.Log
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Contents
@@ -10,6 +12,7 @@ import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.tool
+import com.jm.jarvis.data.SettingsStore
 import com.jm.jarvis.domain.HabitService
 import com.jm.jarvis.domain.MemoryService
 import com.jm.jarvis.domain.PT_BR
@@ -40,6 +43,8 @@ class Brain(
     private val context: Context,
     private val habits: HabitService,
     private val memory: MemoryService,
+    private val settings: SettingsStore,
+    private val cloud: CloudBrain,
     /** Ferramentas novas para cada conversa (guardam as fontes consultadas nela). */
     private val newTools: () -> JarvisTools,
 ) {
@@ -67,6 +72,13 @@ class Brain(
     /** Responde ao que o usuário disse, executando as ferramentas que a IA pedir, frase a frase. */
     fun reply(text: String): Flow<ReplyEvent> = flow {
         mutex.withLock {
+            // Comandos claros não esperam a IA: são entendidos e executados na hora.
+            Shortcut.match(text, habits.habits())?.let { shortcut ->
+                emit(ReplyEvent.Done(Reply(runCatching { shortcut.run(newTools()) }.getOrElse { "Não consegui: ${it.message}" })))
+                return@withLock
+            }
+            // Com internet e chave, a IA online responde; se falhar, cai para o Gemma local.
+            cloudReply(text)?.let { emit(ReplyEvent.Done(it)); return@withLock }
             if (!installed()) {
                 emit(ReplyEvent.Done(Reply("Meu modelo de IA ainda não está instalado neste celular.")))
                 return@withLock
@@ -85,6 +97,27 @@ class Brain(
         }
     }.flowOn(Dispatchers.Default)
 
+    private suspend fun cloudReply(text: String): Reply? {
+        val config = settings.current()
+        if (!config.cloudEnabled || config.cloudKey.isBlank() || !online()) return null
+        return try {
+            val toolSet = newTools()
+            val persona = persona(habits.habits().filter { it.active }.joinToString(", ") { it.name }, memory.forPrompt(), LocalDateTime.now())
+            val answer = clean(cloud.reply(text, persona, toolSet))
+            val checked = if (toolSet.executed == 0 && CLAIM.containsMatchIn(answer)) NOT_DONE else answer
+            Reply(checked.ifEmpty { "Feito." }, toolSet.sources.distinctBy { it.url })
+        } catch (e: Exception) {
+            Log.w(TAG, "IA online falhou; usando o modelo local", e)
+            null
+        }
+    }
+
+    private fun online(): Boolean {
+        val manager = context.getSystemService(ConnectivityManager::class.java)
+        val capabilities = manager.getNetworkCapabilities(manager.activeNetwork) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }
+
     /** Libera os ~600 MB do modelo quando o app sai da tela. */
     suspend fun release() = mutex.withLock {
         closeConversation()
@@ -100,8 +133,10 @@ class Brain(
         current.sendMessageAsync(text).collect { chunk ->
             raw.append(chunk.toString())
             val cleaned = clean(raw.toString())
-            if (cleaned.isNotEmpty()) onText(cleaned)
+            // "Registrado" sem ter chamado nenhuma ferramenta é invenção do modelo: não deixa sair.
+            if (cleaned.isNotEmpty() && !(toolSet.executed == 0 && CLAIM.containsMatchIn(cleaned))) onText(cleaned)
         }
+        if (toolSet.executed == 0 && CLAIM.containsMatchIn(clean(raw.toString()))) onText(NOT_DONE)
         return toolSet.sources.distinctBy { it.url }
     }
 
@@ -148,18 +183,19 @@ class Brain(
 
     /** As instruções da conversa. Público para o teste de acerto usar exatamente as mesmas. */
     fun persona(routines: String, facts: List<String>, now: LocalDateTime) = """
-        Você é JARVIS, o assistente pessoal do usuário: educado, direto e com um toque de humor, como um mordomo britânico. Trate o usuário por "você", sem "senhor" nem "senhora".
-        Responda sempre em português do Brasil, em no máximo duas frases curtas, sem emojis, listas, links ou formatação, porque sua resposta será falada em voz alta. Não diga a data nem a hora, a menos que perguntem.
-        Use as ferramentas para registrar, criar, adiar ou consultar rotinas e para consultar a agenda. Nunca invente dados do usuário.
-        Para fatos sobre pessoas, lugares e conceitos, consulte a Wikipedia. Para notícias, preços, placares, resultados ou qualquer coisa recente, pesquise na internet. Para tempo e temperatura, use o clima. Não chute: se não souber, pesquise.
-        Para "me lembra de..." com horário, crie um lembrete; quando o usuário contar algo sobre si para você lembrar, guarde na memória.
-        Depois de usar uma ferramenta, responda com base no resultado dela.
+        Você é JARVIS, o assistente pessoal do usuário: educado, direto, com um toque de humor de mordomo britânico. Trate por "você".
+        Responda em português do Brasil, em no máximo duas frases curtas, sem emojis, listas ou links, pois será falado em voz alta. Não diga data nem hora, a menos que perguntem.
+        Para fazer algo (registrar, criar, adiar, lembrar, guardar, consultar), chame a ferramenta; nunca diga que fez sem chamá-la. Nunca invente dados do usuário.
+        Pessoas, lugares e conceitos: Wikipedia. Notícias, preços, placares e fatos recentes: internet. Tempo: clima.
         Agora é ${now.format(NOW)}.
         Rotinas do usuário: $routines.
     """.trimIndent() + if (facts.isEmpty()) "" else "\nO que você sabe sobre o usuário: ${facts.joinToString("; ")}."
 
     private companion object {
         const val TAG = "JarvisBrain"
+        /** Frases que afirmam uma ação feita; só valem se alguma ferramenta rodou. */
+        val CLAIM = Regex("\\b(registrad[oa]|registrei|pronto|feito|criei|criad[oa]|anotei|anotad[oa]|guardei|guardad[oa]|adiei|adiad[oa]|iniciei|iniciad[oa]|configurei|liguei|desliguei|abri|lembrete criado)\\b", RegexOption.IGNORE_CASE)
+        const val NOT_DONE = "Não consegui fazer isso. Pode pedir de outro jeito?"
         val MAX_AGE: Duration = Duration.ofMinutes(30)
         val NOW: DateTimeFormatter = DateTimeFormatter.ofPattern("EEEE, d 'de' MMMM 'de' yyyy, HH:mm", PT_BR)
 
