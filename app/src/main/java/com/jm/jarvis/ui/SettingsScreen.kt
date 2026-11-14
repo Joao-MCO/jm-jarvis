@@ -49,6 +49,7 @@ private enum class QuietEdge { START, END }
 fun SettingsScreen(app: AppContainer) {
     val context = LocalContext.current
     val settings by remember { app.settings.flow }.collectAsStateWithLifecycle(initialValue = null)
+    val facts by remember { app.memory.observe() }.collectAsStateWithLifecycle(initialValue = emptyList())
     val scope = rememberCoroutineScope()
 
     // Permissões podem mudar fora do app: relê ao voltar para a tela.
@@ -143,6 +144,22 @@ fun SettingsScreen(app: AppContainer) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         voiceProblem?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+
+        HorizontalDivider()
+        Text("O que o JARVIS sabe sobre você", style = MaterialTheme.typography.titleMedium)
+        if (facts.isEmpty()) {
+            Text(
+                "Nada ainda. Diga, por exemplo: \"lembra que eu sou alérgico a camarão\".",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        facts.forEach { fact ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(fact.text, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                TextButton(onClick = { scope.launch { app.memory.forget(fact.id) } }) { Text("Apagar") }
+            }
+        }
 
         HorizontalDivider()
         Text("Pesquisa na internet", style = MaterialTheme.typography.titleMedium)

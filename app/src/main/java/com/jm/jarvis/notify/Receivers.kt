@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import com.jm.jarvis.AppContainer
 import com.jm.jarvis.container
+import com.jm.jarvis.data.AlertMode
 import com.jm.jarvis.domain.AlertPolicy
 import com.jm.jarvis.domain.Progress
 import com.jm.jarvis.domain.StopwatchAction
@@ -33,7 +34,18 @@ class ReminderReceiver : BroadcastReceiver() {
             when (intent.action) {
                 ReminderScheduler.ACTION_HABIT -> if (habitId != null) alertHabit(habitId)
                 ReminderScheduler.ACTION_CALENDAR -> calendar.onAlarm()
+                ReminderScheduler.ACTION_REMINDER -> if (habitId != null) alertReminder(habitId)
             }
+        }
+    }
+
+    private suspend fun AppContainer.alertReminder(reminderId: Long) {
+        val reminder = reminders.onDue(reminderId) ?: return
+        val decision = AlertPolicy.forHabit(AlertMode.SPEAK, settings.current(), LocalTime.now(), speaker.shouldStayQuiet())
+        notifications.showReminder(reminder, decision.channel)
+        if (decision.speak) {
+            delay(800)
+            speaker.speak("Lembrete: ${reminder.text}.")
         }
     }
 
@@ -61,6 +73,11 @@ class NotificationActionReceiver : BroadcastReceiver() {
             runAsync(context) { stopwatch.apply(stopwatchAction) }
             return
         }
+        if (intent.action == ACTION_REMINDER_SNOOZE) {
+            val reminderId = intent.data?.lastPathSegment?.toLongOrNull() ?: return
+            runAsync(context) { reminders.snooze(reminderId, REMINDER_SNOOZE_MINUTES) }
+            return
+        }
         val habitId = intent.data?.lastPathSegment?.toLongOrNull() ?: return
         runAsync(context) {
             when (intent.action) {
@@ -80,6 +97,8 @@ class NotificationActionReceiver : BroadcastReceiver() {
         const val ACTION_STOPWATCH_PAUSE = "com.jm.jarvis.action.STOPWATCH_PAUSE"
         const val ACTION_STOPWATCH_RESUME = "com.jm.jarvis.action.STOPWATCH_RESUME"
         const val ACTION_STOPWATCH_RESET = "com.jm.jarvis.action.STOPWATCH_RESET"
+        const val ACTION_REMINDER_SNOOZE = "com.jm.jarvis.action.REMINDER_SNOOZE"
+        const val REMINDER_SNOOZE_MINUTES = 10L
     }
 }
 
@@ -89,6 +108,7 @@ class BootReceiver : BroadcastReceiver() {
         if (intent.action !in HANDLED_ACTIONS) return
         runAsync(context) {
             habits.rescheduleAll()
+            reminders.rescheduleAll()
             calendar.refresh()
         }
     }

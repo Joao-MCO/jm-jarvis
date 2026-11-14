@@ -4,6 +4,8 @@ import android.app.Application
 import android.content.Context
 import com.jm.jarvis.brain.Brain
 import com.jm.jarvis.brain.JarvisTools
+import com.jm.jarvis.domain.MemoryService
+import com.jm.jarvis.domain.ReminderService
 import com.jm.jarvis.domain.StopwatchService
 import com.jm.jarvis.phone.PhoneActions
 import com.jm.jarvis.calendar.CalendarAnnouncer
@@ -38,13 +40,18 @@ class AppContainer(context: Context) {
     val notifications = Notifications(context)
     val speaker = Speaker(context)
     private val scheduler = ReminderScheduler(context)
-    val habits = HabitService(context, AppDatabase.build(context).habitDao(), scheduler, notifications)
+    private val database = AppDatabase.build(context)
+    val habits = HabitService(context, database.habitDao(), scheduler, notifications)
+    val reminders = ReminderService(database.reminderDao(), scheduler, notifications)
+    val memory = MemoryService(database.memoryDao())
     val calendar = CalendarAnnouncer(context, settings, scheduler, speaker)
     val speechInput = SpeechInput(context)
     val web = WebLookup(context, settings)
     val phone = PhoneActions(context)
     val stopwatch = StopwatchService(settings, notifications)
-    val brain = Brain(context, habits) { JarvisTools(habits, calendar, web, phone, stopwatch) }
+    val brain = Brain(context, habits, memory) {
+        JarvisTools(habits, calendar, web, phone, stopwatch, reminders, memory)
+    }
 }
 
 val Context.container: AppContainer get() = (applicationContext as JarvisApp).container

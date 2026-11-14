@@ -11,7 +11,9 @@ import com.jm.jarvis.domain.DraftResult
 import com.jm.jarvis.domain.GoalKind
 import com.jm.jarvis.domain.HabitMatcher
 import com.jm.jarvis.domain.HabitService
+import com.jm.jarvis.domain.MemoryService
 import com.jm.jarvis.domain.Progress
+import com.jm.jarvis.domain.ReminderService
 import com.jm.jarvis.domain.RoutineDraft
 import com.jm.jarvis.domain.SpokenTime
 import com.jm.jarvis.domain.Stopwatch
@@ -40,7 +42,41 @@ class JarvisTools(
     private val web: WebLookup,
     private val phone: PhoneActions,
     private val stopwatch: StopwatchService,
+    private val reminders: ReminderService,
+    private val memory: MemoryService,
 ) : ToolSet {
+
+    @Tool(description = "Lembretes avulsos: criar, listar ou cancelar. Ex.: me lembra de ligar para o dentista amanhã às 15h.")
+    fun lembrete(
+        @ToolParam(description = "criar, listar ou cancelar") acao: String,
+        @ToolParam(description = "O que lembrar, ou qual lembrete cancelar") texto: String? = null,
+        @ToolParam(description = "Quando, exatamente como o usuário disse, ex.: amanhã às 15h, daqui a 20 minutos") quando: String? = null,
+    ): String = runBlocking {
+        val action = SpokenTime.normalize(acao)
+        when {
+            "cancel" in action || "apag" in action || "remov" in action ->
+                texto?.let { reminders.cancel(it) } ?: "Diga qual lembrete cancelar."
+            "list" in action || "ver" in action || "quais" in action -> reminders.describePending()
+            else -> {
+                if (texto.isNullOrBlank()) return@runBlocking "Diga o que devo lembrar."
+                if (quando.isNullOrBlank()) return@runBlocking "Diga quando devo lembrar."
+                reminders.create(texto, quando)
+            }
+        }
+    }
+
+    @Tool(description = "Memória sobre o usuário: guardar um fato ou preferência, esquecer um fato ou listar o que você sabe.")
+    fun memoria(
+        @ToolParam(description = "guardar, esquecer ou listar") acao: String,
+        @ToolParam(description = "O fato, em uma frase, ex.: Sou alérgico a camarão") fato: String? = null,
+    ): String = runBlocking {
+        val action = SpokenTime.normalize(acao)
+        when {
+            "esquec" in action || "apag" in action -> fato?.let { memory.forget(it) } ?: "Diga o que devo esquecer."
+            "list" in action || "ver" in action -> memory.describe()
+            else -> fato?.let { memory.remember(it) } ?: "Diga o que devo guardar."
+        }
+    }
 
     @Tool(description = "Relógio do celular: criar despertador, iniciar timer ou mostrar os despertadores.")
     fun relogio(
@@ -161,7 +197,7 @@ class JarvisTools(
         }
     }
 
-    @Tool(description = "Adia o próximo lembrete de uma rotina.")
+    @Tool(description = "Adia o próximo aviso de uma rotina, ex.: adia a água por 20 minutos.")
     fun adiarLembrete(
         @ToolParam(description = "Nome da rotina, ex.: água") habito: String,
         @ToolParam(description = "Quantos minutos adiar") minutos: Int,

@@ -10,6 +10,7 @@ import android.graphics.drawable.Icon
 import android.net.Uri
 import com.jm.jarvis.MainActivity
 import com.jm.jarvis.R
+import com.jm.jarvis.data.Reminder
 import com.jm.jarvis.domain.AlertChannel
 import com.jm.jarvis.domain.HabitStatus
 import com.jm.jarvis.domain.Progress
@@ -87,6 +88,33 @@ class Notifications(private val context: Context) {
     }
 
     fun cancelStopwatch() = manager.cancel(STOPWATCH_ID)
+
+    fun showReminder(reminder: Reminder, channel: AlertChannel) {
+        val snooze = Intent(context, NotificationActionReceiver::class.java)
+            .setAction(NotificationActionReceiver.ACTION_REMINDER_SNOOZE)
+            .setData(Uri.parse("jarvis://reminder/${reminder.id}"))
+        val notification = Notification.Builder(context, channel.channelId)
+            .setSmallIcon(R.drawable.ic_jarvis)
+            .setContentTitle("Lembrete")
+            .setContentText(reminder.text)
+            .setCategory(Notification.CATEGORY_REMINDER)
+            .setAutoCancel(true)
+            .setContentIntent(openApp())
+            .addAction(
+                Notification.Action.Builder(
+                    Icon.createWithResource(context, R.drawable.ic_jarvis),
+                    "Adiar ${NotificationActionReceiver.REMINDER_SNOOZE_MINUTES} min",
+                    PendingIntent.getBroadcast(context, 0, snooze, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT),
+                ).build(),
+            )
+            .build()
+        manager.notify(reminderNotificationId(reminder.id), notification)
+    }
+
+    fun cancelReminder(reminderId: Long) = manager.cancel(reminderNotificationId(reminderId))
+
+    /** Faixa própria, para não colidir com as rotinas. */
+    private fun reminderNotificationId(reminderId: Long): Int = 1_000_000 + (reminderId % 1_000_000).toInt()
 
     private fun stopwatchAction(action: String, label: String): Notification.Action {
         val intent = Intent(context, NotificationActionReceiver::class.java).setAction(action).setData(Uri.parse("jarvis://stopwatch"))

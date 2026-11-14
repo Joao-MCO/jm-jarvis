@@ -31,6 +31,7 @@ class MainActivity : ComponentActivity() {
         app.scope.launch {
             app.habits.seedIfNeeded(app.settings)
             app.habits.rescheduleAll()
+            app.reminders.rescheduleAll()
             app.calendar.refresh()
         }
 

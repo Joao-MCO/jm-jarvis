@@ -15,6 +15,8 @@ class ReminderScheduler(private val context: Context) {
 
     fun scheduleCalendar(at: Instant?) = set(operation(ACTION_CALENDAR, "jarvis://calendar"), at)
 
+    fun scheduleReminder(reminderId: Long, at: Instant?) = set(operation(ACTION_REMINDER, "jarvis://reminder/$reminderId"), at)
+
     private fun set(operation: PendingIntent, at: Instant?) {
         if (at == null) {
             alarms.cancel(operation)
@@ -38,5 +40,6 @@ class ReminderScheduler(private val context: Context) {
     companion object {
         const val ACTION_HABIT = "com.jm.jarvis.action.HABIT_REMINDER"
         const val ACTION_CALENDAR = "com.jm.jarvis.action.CALENDAR_ANNOUNCEMENT"
+        const val ACTION_REMINDER = "com.jm.jarvis.action.REMINDER"
     }
 }

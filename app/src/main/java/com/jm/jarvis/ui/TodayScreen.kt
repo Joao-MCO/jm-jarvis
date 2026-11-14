@@ -20,6 +20,7 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -35,17 +36,37 @@ import com.jm.jarvis.domain.PT_BR
 import com.jm.jarvis.domain.Progress
 import com.jm.jarvis.domain.TodayState
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 @Composable
 fun TodayScreen(app: AppContainer, snackbar: SnackbarHostState) {
     val state by remember { app.habits.observeToday() }.collectAsStateWithLifecycle(initialValue = null)
     val settings by remember { app.settings.flow }.collectAsStateWithLifecycle(initialValue = Settings())
+    val reminders by remember { app.reminders.observePending() }.collectAsStateWithLifecycle(initialValue = emptyList())
     val scope = rememberCoroutineScope()
     val today = state ?: return
 
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { Header(today, settings.muted) }
+        if (reminders.isNotEmpty()) {
+            item { Text("Lembretes", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary) }
+            items(reminders, key = { "r${it.id}" }) { reminder ->
+                val at = LocalDateTime.ofInstant(Instant.ofEpochMilli(reminder.at), ZoneId.systemDefault())
+                Card(Modifier.fillMaxWidth()) {
+                    Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(reminder.text, style = MaterialTheme.typography.bodyLarge)
+                            Text(Progress.upcoming(at, today.date), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        TextButton(onClick = { scope.launch { app.reminders.cancel(reminder.id) } }) { Text("Cancelar") }
+                    }
+                }
+            }
+            item { Text("Rotinas", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary) }
+        }
         items(today.statuses.sortedBy { it.completeToday }, key = { it.habit.id }) { status ->
             HabitCard(status) {
                 scope.launch {

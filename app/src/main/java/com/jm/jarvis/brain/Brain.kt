@@ -11,6 +11,7 @@ import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.tool
 import com.jm.jarvis.domain.HabitService
+import com.jm.jarvis.domain.MemoryService
 import com.jm.jarvis.domain.PT_BR
 import com.jm.jarvis.web.Source
 import kotlinx.coroutines.Dispatchers
@@ -38,6 +39,7 @@ sealed interface ReplyEvent {
 class Brain(
     private val context: Context,
     private val habits: HabitService,
+    private val memory: MemoryService,
     /** Ferramentas novas para cada conversa (guardam as fontes consultadas nela). */
     private val newTools: () -> JarvisTools,
 ) {
@@ -122,10 +124,11 @@ class Brain(
             engine = it
         }
         val routines = habits.habits().filter { it.active }.joinToString(", ") { it.name }
+        val facts = memory.forPrompt()
         val toolSet = newTools().also { tools = it }
         return loaded.createConversation(
             ConversationConfig(
-                systemInstruction = Contents.of(persona(routines, now)),
+                systemInstruction = Contents.of(persona(routines, facts, now)),
                 tools = listOf(tool(toolSet)),
                 // Escolha gulosa: foi assim que o teste da Fase 0 mediu 96% de acerto nas ferramentas.
                 samplerConfig = SamplerConfig(topK = 1, topP = 1.0, temperature = 1.0),
@@ -143,15 +146,16 @@ class Brain(
         tools = null
     }
 
-    private fun persona(routines: String, now: LocalDateTime) = """
+    private fun persona(routines: String, facts: List<String>, now: LocalDateTime) = """
         Você é JARVIS, o assistente pessoal do usuário: educado, direto e com um toque de humor, como um mordomo britânico. Trate o usuário por "você", sem "senhor" nem "senhora".
         Responda sempre em português do Brasil, em no máximo duas frases curtas, sem emojis, listas, links ou formatação, porque sua resposta será falada em voz alta. Não diga a data nem a hora, a menos que perguntem.
         Use as ferramentas para registrar, criar, adiar ou consultar rotinas e para consultar a agenda. Nunca invente dados do usuário.
         Para fatos sobre pessoas, lugares e conceitos, consulte a Wikipedia. Para notícias, preços, placares, resultados ou qualquer coisa recente, pesquise na internet. Para tempo e temperatura, use o clima. Não chute: se não souber, pesquise.
+        Para "me lembra de..." com horário, crie um lembrete; quando o usuário contar algo sobre si para você lembrar, guarde na memória.
         Depois de usar uma ferramenta, responda com base no resultado dela.
         Agora é ${now.format(NOW)}.
         Rotinas do usuário: $routines.
-    """.trimIndent()
+    """.trimIndent() + if (facts.isEmpty()) "" else "\nO que você sabe sobre o usuário: ${facts.joinToString("; ")}."
 
     private companion object {
         const val TAG = "JarvisBrain"
